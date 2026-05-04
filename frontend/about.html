@@ -1,0 +1,1426 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>About – EcoWeb Auditor</title>
+    <meta
+      name="description"
+      content="Learn about the environmental cost of the internet, the Sustainable Web Design model, and how EcoWeb Auditor calculates carbon emissions at the element level."
+    />
+    <link rel="stylesheet" href="css/main.css" />
+    <script src="js/main.js" defer></script>
+  </head>
+  <body>
+    <!-- ── Ambient background orbs ──────────────────────────────────────────── -->
+    <div
+      class="orb"
+      style="
+        width: 600px;
+        height: 600px;
+        top: 0%;
+        left: -5%;
+        background: radial-gradient(
+          circle,
+          rgba(52, 199, 89, 0.08) 0%,
+          transparent 65%
+        );
+      "
+    ></div>
+    <div
+      class="orb"
+      style="
+        width: 500px;
+        height: 500px;
+        bottom: 15%;
+        right: -4%;
+        background: radial-gradient(
+          circle,
+          rgba(10, 132, 255, 0.06) 0%,
+          transparent 65%
+        );
+      "
+    ></div>
+
+    <!-- ── Navigation ────────────────────────────────────────────────────────── -->
+    <nav class="nav">
+      <a class="nav-logo" href="index.html">
+        <div class="nav-logo-icon">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path
+              d="M7 1C7 1 2 4.5 2 8.5C2 11.2 4.2 13 7 13C9.8 13 12 11.2 12 8.5C12 4.5 7 1 7 1Z"
+              stroke="white"
+              stroke-width="1.4"
+              fill="none"
+            />
+            <path
+              d="M7 6V10M5 8H9"
+              stroke="white"
+              stroke-width="1.4"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
+        <span class="nav-logo-text">EcoWeb Auditor</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html">Auditor</a>
+        <a href="about.html" class="active">About</a>
+      </div>
+    </nav>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+       HERO
+  ═══════════════════════════════════════════════════════════════════════ -->
+    <section class="about-hero">
+      <div class="badge badge-green" style="margin-bottom: 22px">
+        The Internet &amp; Climate Change
+      </div>
+      <h1>
+        The web has a<br />
+        <span class="gradient-text">hidden carbon cost.</span>
+      </h1>
+      <p style="margin-top: 18px">
+        Every byte transferred across the internet consumes energy. EcoWeb
+        Auditor makes that invisible cost visible — element by element.
+      </p>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+       SECTION 1 – THE SCALE OF THE PROBLEM
+  ═══════════════════════════════════════════════════════════════════════ -->
+    <section class="content-section">
+      <div class="content-inner">
+        <div class="section-label">The Scale</div>
+        <div class="section-title">A problem as big as aviation.</div>
+        <p class="section-sub">
+          Information and communications technology (ICT) is responsible for
+          approximately 3.7% of global greenhouse gas emissions — comparable to
+          the entire aviation industry. Unlike aviation, this impact is largely
+          invisible to the people producing it.
+        </p>
+
+        <div class="stats-grid" style="margin-top: 40px">
+          <div class="card stat-card">
+            <div class="stat-number">3.7%</div>
+            <div class="stat-desc">
+              of global greenhouse gas emissions are caused by ICT
+              infrastructure, equivalent to the aviation industry.
+            </div>
+          </div>
+
+          <div class="card stat-card">
+            <div class="stat-number">2×</div>
+            <div class="stat-desc">
+              The internet's carbon footprint is expected to double by 2025 as
+              video streaming, AI workloads, and cloud storage grow.
+            </div>
+          </div>
+
+          <div class="card stat-card">
+            <div class="stat-number">416 TWh</div>
+            <div class="stat-desc">
+              Estimated annual electricity consumption of global data centres —
+              more than the entire United Kingdom uses in a year.
+            </div>
+          </div>
+
+          <div class="card stat-card">
+            <div class="stat-number">83.9%</div>
+            <div class="stat-desc">
+              of developers surveyed already prioritise loading speed — but
+              fewer than 20% use a dedicated carbon auditing tool.
+              <em>(EcoWeb Auditor primary research, 2026)</em>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+       SECTION 2 – WHAT CAUSES WEBSITE EMISSIONS
+  ═══════════════════════════════════════════════════════════════════════ -->
+    <section class="content-section">
+      <div class="content-inner">
+        <div class="section-label">Root Causes</div>
+        <div class="section-title">What makes a website carbon-heavy?</div>
+        <p class="section-sub">
+          Every HTTP request, every kilobyte downloaded, and every
+          render-blocking script demands energy — from your server, from the
+          global network, and from the device in your visitor's hand.
+        </p>
+
+        <div class="two-col" style="margin-top: 40px">
+          <div>
+            <!-- Asset culprits list -->
+            <div style="display: flex; flex-direction: column; gap: 12px">
+              <!-- Images -->
+              <div
+                class="card"
+                style="display: flex; gap: 16px; align-items: flex-start"
+              >
+                <div
+                  style="
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 10px;
+                    flex-shrink: 0;
+                    background: rgba(10, 132, 255, 0.12);
+                    border: 1px solid rgba(10, 132, 255, 0.25);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <rect
+                      x="1.5"
+                      y="2.5"
+                      width="13"
+                      height="11"
+                      rx="2"
+                      stroke="#0A84FF"
+                      stroke-width="1.3"
+                    />
+                    <circle cx="5.5" cy="6" r="1.2" fill="#0A84FF" />
+                    <path
+                      d="M1.5 11L5 7.5L7.5 10L10 8L14.5 12"
+                      stroke="#0A84FF"
+                      stroke-width="1.2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <div
+                    style="
+                      font-size: 13px;
+                      font-weight: 600;
+                      color: var(--text);
+                      margin-bottom: 4px;
+                    "
+                  >
+                    Unoptimised Images
+                  </div>
+                  <div
+                    style="
+                      font-size: 12px;
+                      color: var(--text-sub);
+                      line-height: 1.6;
+                    "
+                  >
+                    Images typically account for 50–60% of a page's total
+                    weight. A single uncompressed hero image in PNG format can
+                    exceed 5 MB — the equivalent of hundreds of text pages.
+                    Converting to WebP or AVIF typically reduces size by 60–85%
+                    with no visible quality loss.
+                  </div>
+                </div>
+              </div>
+
+              <!-- JavaScript -->
+              <div
+                class="card"
+                style="display: flex; gap: 16px; align-items: flex-start"
+              >
+                <div
+                  style="
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 10px;
+                    flex-shrink: 0;
+                    background: rgba(255, 159, 10, 0.12);
+                    border: 1px solid rgba(255, 159, 10, 0.25);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <rect
+                      x="1.5"
+                      y="1.5"
+                      width="13"
+                      height="13"
+                      rx="2"
+                      stroke="#FF9F0A"
+                      stroke-width="1.3"
+                    />
+                    <path
+                      d="M5.5 10.5C5.5 11.3 6 12 7 12C8 12 8.5 11.3 8.5 10.2V6H7.2V10.1C7.2 10.7 7 11 6.5 11"
+                      stroke="#FF9F0A"
+                      stroke-width="1.1"
+                      stroke-linecap="round"
+                    />
+                    <path
+                      d="M10 10.8C10.4 11.5 11.1 12 12 12"
+                      stroke="#FF9F0A"
+                      stroke-width="1.1"
+                      stroke-linecap="round"
+                    />
+                    <path
+                      d="M9.5 8.5C9.5 8.5 9.8 7.8 10.7 7.8C11.7 7.8 12 8.5 12 9C12 10.3 10 10 10 11"
+                      stroke="#FF9F0A"
+                      stroke-width="1.1"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <div
+                    style="
+                      font-size: 13px;
+                      font-weight: 600;
+                      color: var(--text);
+                      margin-bottom: 4px;
+                    "
+                  >
+                    Bloated JavaScript
+                  </div>
+                  <div
+                    style="
+                      font-size: 12px;
+                      color: var(--text-sub);
+                      line-height: 1.6;
+                    "
+                  >
+                    Large vendor bundles are the second biggest contributor to
+                    page weight. Modern bundlers often ship 3× more code than
+                    the initial route needs. Tree-shaking, code-splitting, and
+                    removing unused dependencies can reduce bundle size by
+                    40–70%.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Fonts -->
+              <div
+                class="card"
+                style="display: flex; gap: 16px; align-items: flex-start"
+              >
+                <div
+                  style="
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 10px;
+                    flex-shrink: 0;
+                    background: rgba(191, 90, 242, 0.12);
+                    border: 1px solid rgba(191, 90, 242, 0.25);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M3 13L6.5 3H9.5L13 13"
+                      stroke="#BF5AF2"
+                      stroke-width="1.3"
+                      stroke-linecap="round"
+                    />
+                    <path
+                      d="M4.5 9.5H11.5"
+                      stroke="#BF5AF2"
+                      stroke-width="1.2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <div
+                    style="
+                      font-size: 13px;
+                      font-weight: 600;
+                      color: var(--text);
+                      margin-bottom: 4px;
+                    "
+                  >
+                    Unsubsetted Fonts
+                  </div>
+                  <div
+                    style="
+                      font-size: 12px;
+                      color: var(--text-sub);
+                      line-height: 1.6;
+                    "
+                  >
+                    Web fonts loaded without subsetting carry thousands of
+                    characters your page never uses. Subsetting a font to your
+                    actual character set reduces it by 60–80%. Always use WOFF2
+                    format and add
+                    <code style="color: var(--green)">font-display: swap</code>.
+                  </div>
+                </div>
+              </div>
+
+              <!-- CSS -->
+              <div
+                class="card"
+                style="display: flex; gap: 16px; align-items: flex-start"
+              >
+                <div
+                  style="
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 10px;
+                    flex-shrink: 0;
+                    background: rgba(52, 199, 89, 0.1);
+                    border: 1px solid rgba(52, 199, 89, 0.22);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M2 2.5L3.5 13.5L8 15L12.5 13.5L14 2.5H2Z"
+                      stroke="#34C759"
+                      stroke-width="1.2"
+                    />
+                    <path
+                      d="M5 5.5H11M5.5 8.5H10.5M6.5 11.5H9.5"
+                      stroke="#34C759"
+                      stroke-width="1.1"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <div
+                    style="
+                      font-size: 13px;
+                      font-weight: 600;
+                      color: var(--text);
+                      margin-bottom: 4px;
+                    "
+                  >
+                    Unpurged CSS
+                  </div>
+                  <div
+                    style="
+                      font-size: 12px;
+                      color: var(--text-sub);
+                      line-height: 1.6;
+                    "
+                  >
+                    Utility-first CSS frameworks like Tailwind ship hundreds of
+                    kilobytes of unused rules in development mode. A production
+                    build with PurgeCSS or Tailwind's built-in purge reduces a
+                    300 KB stylesheet to under 10 KB.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right column: energy chain explanation -->
+          <div>
+            <div class="card" style="padding: 28px">
+              <div
+                style="
+                  font-size: 13px;
+                  font-weight: 700;
+                  color: var(--green);
+                  text-transform: uppercase;
+                  letter-spacing: 0.7px;
+                  margin-bottom: 16px;
+                "
+              >
+                The Energy Chain
+              </div>
+
+              <!-- Steps -->
+              <div style="display: flex; flex-direction: column; gap: 0">
+                <div
+                  style="
+                    display: flex;
+                    gap: 14px;
+                    padding-bottom: 18px;
+                    position: relative;
+                  "
+                >
+                  <div
+                    style="
+                      width: 32px;
+                      height: 32px;
+                      border-radius: 50%;
+                      flex-shrink: 0;
+                      background: var(--green-dim);
+                      border: 1px solid rgba(52, 199, 89, 0.3);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-size: 11px;
+                      font-weight: 700;
+                      color: var(--green);
+                    "
+                  >
+                    1
+                  </div>
+                  <div>
+                    <div
+                      style="
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: var(--text);
+                        margin-bottom: 3px;
+                      "
+                    >
+                      Origin Server
+                    </div>
+                    <div
+                      style="
+                        font-size: 12px;
+                        color: var(--text-sub);
+                        line-height: 1.6;
+                      "
+                    >
+                      Web servers consume electricity 24/7. Every request wakes
+                      CPUs and reads from disks. Larger files mean more compute
+                      time.
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 14px; padding-bottom: 18px">
+                  <div
+                    style="
+                      width: 32px;
+                      height: 32px;
+                      border-radius: 50%;
+                      flex-shrink: 0;
+                      background: var(--green-dim);
+                      border: 1px solid rgba(52, 199, 89, 0.3);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-size: 11px;
+                      font-weight: 700;
+                      color: var(--green);
+                    "
+                  >
+                    2
+                  </div>
+                  <div>
+                    <div
+                      style="
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: var(--text);
+                        margin-bottom: 3px;
+                      "
+                    >
+                      Global Network
+                    </div>
+                    <div
+                      style="
+                        font-size: 12px;
+                        color: var(--text-sub);
+                        line-height: 1.6;
+                      "
+                    >
+                      Data travels through undersea cables, routers, and
+                      exchange points — all electricity-powered. The SWD model
+                      estimates 0.81 kWh per gigabyte transferred globally.
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 14px; padding-bottom: 18px">
+                  <div
+                    style="
+                      width: 32px;
+                      height: 32px;
+                      border-radius: 50%;
+                      flex-shrink: 0;
+                      background: var(--green-dim);
+                      border: 1px solid rgba(52, 199, 89, 0.3);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-size: 11px;
+                      font-weight: 700;
+                      color: var(--green);
+                    "
+                  >
+                    3
+                  </div>
+                  <div>
+                    <div
+                      style="
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: var(--text);
+                        margin-bottom: 3px;
+                      "
+                    >
+                      End-User Device
+                    </div>
+                    <div
+                      style="
+                        font-size: 12px;
+                        color: var(--text-sub);
+                        line-height: 1.6;
+                      "
+                    >
+                      Parsing JavaScript, decoding images, and rendering layouts
+                      all tax the device's CPU and GPU — draining batteries and
+                      generating heat. Heavier pages demand more device energy.
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 14px">
+                  <div
+                    style="
+                      width: 32px;
+                      height: 32px;
+                      border-radius: 50%;
+                      flex-shrink: 0;
+                      background: rgba(10, 132, 255, 0.12);
+                      border: 1px solid rgba(10, 132, 255, 0.3);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-size: 11px;
+                      font-weight: 700;
+                      color: #0a84ff;
+                    "
+                  >
+                    ∑
+                  </div>
+                  <div>
+                    <div
+                      style="
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: var(--text);
+                        margin-bottom: 3px;
+                      "
+                    >
+                      Combined CO₂
+                    </div>
+                    <div
+                      style="
+                        font-size: 12px;
+                        color: var(--text-sub);
+                        line-height: 1.6;
+                      "
+                    >
+                      The SWD model sums these energy costs and converts to CO₂
+                      using the global average grid carbon intensity of 442
+                      gCO₂/kWh.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+       SECTION 3 – THE SWD MODEL
+  ═══════════════════════════════════════════════════════════════════════ -->
+    <section class="content-section">
+      <div class="content-inner">
+        <div class="section-label">The Calculation Method</div>
+        <div class="section-title">Sustainable Web Design model.</div>
+        <p class="section-sub">
+          EcoWeb Auditor uses the peer-reviewed
+          <a href="https://sustainablewebdesign.org/" target="_blank"
+            >Sustainable Web Design (SWD) model</a
+          >
+          developed by Wholegrain Digital and documented by Tom Greenwood in
+          <em>Sustainable Web Design</em> (A Book Apart, 2021). It is the same
+          methodology used by WebsiteCarbon.com.
+        </p>
+
+        <!-- Formula display -->
+        <div class="formula-box">
+          <div class="formula-text">
+            CO₂ (g) = ( bytes ÷ 10⁹ ) × 0.81 kWh/GB × 442 gCO₂/kWh
+          </div>
+          <div class="formula-vars">
+            <div class="formula-var">
+              <strong>bytes</strong>
+              Total data transferred in bytes — sum of all page assets
+            </div>
+            <div class="formula-var">
+              <strong>0.81 kWh/GB</strong>
+              Estimated energy to transfer 1 gigabyte across the global internet
+            </div>
+            <div class="formula-var">
+              <strong>442 gCO₂/kWh</strong>
+              Global average carbon intensity of electricity (2023 figure)
+            </div>
+            <div class="formula-var">
+              <strong>Result</strong>
+              Estimated grams of CO₂ produced per single page visit
+            </div>
+          </div>
+        </div>
+
+        <!-- Grade scale -->
+        <div style="margin-top: 36px">
+          <div
+            style="
+              font-size: 13px;
+              font-weight: 600;
+              color: var(--text);
+              margin-bottom: 16px;
+            "
+          >
+            Sustainability Grade Scale
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <!-- Grade rows -->
+            <div
+              class="card"
+              style="
+                display: flex;
+                align-items: center;
+                gap: 18px;
+                padding: 14px 20px;
+              "
+            >
+              <div
+                style="
+                  font-size: 22px;
+                  font-weight: 700;
+                  color: #34c759;
+                  min-width: 44px;
+                "
+              >
+                A+
+              </div>
+              <div
+                style="
+                  flex: 1;
+                  height: 6px;
+                  border-radius: 3px;
+                  background: rgba(52, 199, 89, 0.2);
+                "
+              >
+                <div
+                  style="
+                    width: 8%;
+                    height: 100%;
+                    border-radius: 3px;
+                    background: #34c759;
+                  "
+                ></div>
+              </div>
+              <div
+                style="
+                  font-size: 12px;
+                  color: var(--text-sub);
+                  min-width: 140px;
+                  text-align: right;
+                "
+              >
+                Under 0.095g CO₂ / visit
+              </div>
+            </div>
+
+            <div
+              class="card"
+              style="
+                display: flex;
+                align-items: center;
+                gap: 18px;
+                padding: 14px 20px;
+              "
+            >
+              <div
+                style="
+                  font-size: 22px;
+                  font-weight: 700;
+                  color: #30d158;
+                  min-width: 44px;
+                "
+              >
+                A
+              </div>
+              <div
+                style="
+                  flex: 1;
+                  height: 6px;
+                  border-radius: 3px;
+                  background: rgba(48, 209, 88, 0.2);
+                "
+              >
+                <div
+                  style="
+                    width: 18%;
+                    height: 100%;
+                    border-radius: 3px;
+                    background: #30d158;
+                  "
+                ></div>
+              </div>
+              <div
+                style="
+                  font-size: 12px;
+                  color: var(--text-sub);
+                  min-width: 140px;
+                  text-align: right;
+                "
+              >
+                0.095 – 0.184g CO₂ / visit
+              </div>
+            </div>
+
+            <div
+              class="card"
+              style="
+                display: flex;
+                align-items: center;
+                gap: 18px;
+                padding: 14px 20px;
+              "
+            >
+              <div
+                style="
+                  font-size: 22px;
+                  font-weight: 700;
+                  color: #30d158;
+                  min-width: 44px;
+                "
+              >
+                B+
+              </div>
+              <div
+                style="
+                  flex: 1;
+                  height: 6px;
+                  border-radius: 3px;
+                  background: rgba(48, 209, 88, 0.15);
+                "
+              >
+                <div
+                  style="
+                    width: 33%;
+                    height: 100%;
+                    border-radius: 3px;
+                    background: #30d158;
+                  "
+                ></div>
+              </div>
+              <div
+                style="
+                  font-size: 12px;
+                  color: var(--text-sub);
+                  min-width: 140px;
+                  text-align: right;
+                "
+              >
+                0.184 – 0.338g CO₂ / visit
+              </div>
+            </div>
+
+            <div
+              class="card"
+              style="
+                display: flex;
+                align-items: center;
+                gap: 18px;
+                padding: 14px 20px;
+              "
+            >
+              <div
+                style="
+                  font-size: 22px;
+                  font-weight: 700;
+                  color: #ff9f0a;
+                  min-width: 44px;
+                "
+              >
+                B
+              </div>
+              <div
+                style="
+                  flex: 1;
+                  height: 6px;
+                  border-radius: 3px;
+                  background: rgba(255, 159, 10, 0.15);
+                "
+              >
+                <div
+                  style="
+                    width: 48%;
+                    height: 100%;
+                    border-radius: 3px;
+                    background: #ff9f0a;
+                  "
+                ></div>
+              </div>
+              <div
+                style="
+                  font-size: 12px;
+                  color: var(--text-sub);
+                  min-width: 140px;
+                  text-align: right;
+                "
+              >
+                0.338 – 0.493g CO₂ / visit
+              </div>
+            </div>
+
+            <div
+              class="card"
+              style="
+                display: flex;
+                align-items: center;
+                gap: 18px;
+                padding: 14px 20px;
+              "
+            >
+              <div
+                style="
+                  font-size: 22px;
+                  font-weight: 700;
+                  color: #ff9f0a;
+                  min-width: 44px;
+                "
+              >
+                C
+              </div>
+              <div
+                style="
+                  flex: 1;
+                  height: 6px;
+                  border-radius: 3px;
+                  background: rgba(255, 159, 10, 0.12);
+                "
+              >
+                <div
+                  style="
+                    width: 64%;
+                    height: 100%;
+                    border-radius: 3px;
+                    background: #ff9f0a;
+                  "
+                ></div>
+              </div>
+              <div
+                style="
+                  font-size: 12px;
+                  color: var(--text-sub);
+                  min-width: 140px;
+                  text-align: right;
+                "
+              >
+                0.493 – 0.656g CO₂ / visit
+              </div>
+            </div>
+
+            <div
+              class="card"
+              style="
+                display: flex;
+                align-items: center;
+                gap: 18px;
+                padding: 14px 20px;
+              "
+            >
+              <div
+                style="
+                  font-size: 22px;
+                  font-weight: 700;
+                  color: #ff6b30;
+                  min-width: 44px;
+                "
+              >
+                D
+              </div>
+              <div
+                style="
+                  flex: 1;
+                  height: 6px;
+                  border-radius: 3px;
+                  background: rgba(255, 107, 48, 0.12);
+                "
+              >
+                <div
+                  style="
+                    width: 84%;
+                    height: 100%;
+                    border-radius: 3px;
+                    background: #ff6b30;
+                  "
+                ></div>
+              </div>
+              <div
+                style="
+                  font-size: 12px;
+                  color: var(--text-sub);
+                  min-width: 140px;
+                  text-align: right;
+                "
+              >
+                0.656 – 0.857g CO₂ / visit
+              </div>
+            </div>
+
+            <div
+              class="card"
+              style="
+                display: flex;
+                align-items: center;
+                gap: 18px;
+                padding: 14px 20px;
+              "
+            >
+              <div
+                style="
+                  font-size: 22px;
+                  font-weight: 700;
+                  color: #ff3b30;
+                  min-width: 44px;
+                "
+              >
+                F
+              </div>
+              <div
+                style="
+                  flex: 1;
+                  height: 6px;
+                  border-radius: 3px;
+                  background: rgba(255, 59, 48, 0.12);
+                "
+              >
+                <div
+                  style="
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 3px;
+                    background: #ff3b30;
+                  "
+                ></div>
+              </div>
+              <div
+                style="
+                  font-size: 12px;
+                  color: var(--text-sub);
+                  min-width: 140px;
+                  text-align: right;
+                "
+              >
+                Above 0.857g CO₂ / visit
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+       SECTION 4 – 10 OPTIMISATION TIPS
+  ═══════════════════════════════════════════════════════════════════════ -->
+    <section class="content-section">
+      <div class="content-inner">
+        <div class="section-label">Developer Guide</div>
+        <div class="section-title">
+          10 ways to reduce your website's carbon footprint.
+        </div>
+        <p class="section-sub">
+          Each of these changes is also a performance improvement — faster pages
+          and greener pages are the same page.
+        </p>
+
+        <div class="tips-grid">
+          <div class="card tip-card">
+            <div class="tip-number">01</div>
+            <div class="tip-title">Convert images to WebP or AVIF</div>
+            <div class="tip-desc">
+              WebP reduces file sizes by 25–35% vs JPEG; AVIF by 50%+. Use
+              <code style="color: var(--green)">picture</code> with
+              <code style="color: var(--green)">srcset</code> to serve the best
+              format per browser. Tools: Squoosh, ImageOptim, Sharp (Node.js).
+            </div>
+          </div>
+
+          <div class="card tip-card">
+            <div class="tip-number">02</div>
+            <div class="tip-title">Lazy-load below-the-fold assets</div>
+            <div class="tip-desc">
+              Add <code style="color: var(--green)">loading="lazy"</code> to all
+              <code style="color: var(--green)">&lt;img&gt;</code> and
+              <code style="color: var(--green)">&lt;iframe&gt;</code> elements
+              not in the initial viewport. This defers transfers entirely until
+              the user scrolls — assets never viewed are never downloaded.
+            </div>
+          </div>
+
+          <div class="card tip-card">
+            <div class="tip-number">03</div>
+            <div class="tip-title">Enable Brotli compression</div>
+            <div class="tip-desc">
+              Brotli compresses HTML, CSS, and JS 15–25% better than Gzip.
+              Configure it in your web server or CDN. Verify with
+              <code style="color: var(--green)"
+                >curl -H "Accept-Encoding: br" -I &lt;url&gt;</code
+              >
+              and check for
+              <code style="color: var(--green)">content-encoding: br</code>.
+            </div>
+          </div>
+
+          <div class="card tip-card">
+            <div class="tip-number">04</div>
+            <div class="tip-title">Purge unused CSS</div>
+            <div class="tip-desc">
+              Utility frameworks (Tailwind, Bootstrap) include thousands of
+              unused rules in development. Run PurgeCSS or enable Tailwind's
+              built-in purge in production. A 300 KB stylesheet can shrink to
+              under 8 KB.
+            </div>
+          </div>
+
+          <div class="card tip-card">
+            <div class="tip-number">05</div>
+            <div class="tip-title">Tree-shake and code-split JavaScript</div>
+            <div class="tip-desc">
+              Import only the functions you use. Use dynamic
+              <code style="color: var(--green)">import()</code> to load
+              route-specific bundles on demand. Audit third-party dependencies
+              at
+              <a
+                href="https://bundlephobia.com"
+                target="_blank"
+                style="color: var(--green)"
+                >bundlephobia.com</a
+              >
+              before adding them.
+            </div>
+          </div>
+
+          <div class="card tip-card">
+            <div class="tip-number">06</div>
+            <div class="tip-title">Subset web fonts</div>
+            <div class="tip-desc">
+              Use <code style="color: var(--green)">glyphhanger</code> or
+              FontSquirrel to generate a font file containing only the Unicode
+              ranges your page actually uses. Combine with
+              <code style="color: var(--green)">font-display: swap</code>
+              to prevent invisible text during load.
+            </div>
+          </div>
+
+          <div class="card tip-card">
+            <div class="tip-number">07</div>
+            <div class="tip-title">Use a CDN with edge caching</div>
+            <div class="tip-desc">
+              Serving assets from a CDN node geographically close to the user
+              reduces transfer distance, network hops, and latency — all of
+              which translate directly to lower energy consumption. Cloudflare,
+              Fastly, and AWS CloudFront offer generous free tiers.
+            </div>
+          </div>
+
+          <div class="card tip-card">
+            <div class="tip-number">08</div>
+            <div class="tip-title">Set long-lived cache headers</div>
+            <div class="tip-desc">
+              Use
+              <code style="color: var(--green)"
+                >Cache-Control: max-age=31536000, immutable</code
+              >
+              on versioned static assets. Returning visitors download nothing —
+              the most sustainable byte is the one never transferred.
+            </div>
+          </div>
+
+          <div class="card tip-card">
+            <div class="tip-number">09</div>
+            <div class="tip-title">Prefer SVG over raster for UI icons</div>
+            <div class="tip-desc">
+              An SVG icon library weighs 8–15 KB in total. The same icons as PNG
+              sprites can be 10–20× larger and cannot scale without blurring.
+              Inline critical SVGs directly in HTML to eliminate HTTP requests.
+            </div>
+          </div>
+
+          <div class="card tip-card">
+            <div class="tip-number">10</div>
+            <div class="tip-title">Choose a green hosting provider</div>
+            <div class="tip-desc">
+              Check your host at
+              <a
+                href="https://www.thegreenwebfoundation.org/"
+                target="_blank"
+                style="color: var(--green)"
+                >thegreenwebfoundation.org</a
+              >. Providers that run on 100% renewable energy (Hetzner, OVH,
+              GreenGeeks) can cut the carbon intensity of your server traffic by
+              up to 95%.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+       SECTION 5 – ABOUT THE PROJECT
+  ═══════════════════════════════════════════════════════════════════════ -->
+    <section class="content-section">
+      <div class="content-inner">
+        <div class="section-label">About This Project</div>
+        <div class="section-title">A BSc final year artefact.</div>
+
+        <div class="two-col">
+          <div>
+            <p>
+              EcoWeb Auditor was built as the final-year artefact for a BSc
+              (Hons) Software Engineering degree at the University of
+              Bedfordshire (2026). The project was supervised by Ms. Rameesha
+              Kankanamge.
+            </p>
+            <p>
+              The research motivation arose from a clear gap in the existing
+              tooling landscape: while tools like WebsiteCarbon.com provide
+              useful aggregate scores, they act as "black boxes" — developers
+              receive a grade but no information about which specific elements
+              are responsible.
+            </p>
+            <p>
+              Primary market research (n = 31 IT and Software Engineering
+              professionals and students) confirmed this gap:
+              <strong style="color: var(--text)">90.3%</strong>
+              of respondents stated they would use a tool that breaks down
+              carbon impact at the individual element level.
+            </p>
+            <p>
+              The technical stack was chosen to reflect modern industry
+              practice: Python + FastAPI for the async scraping backend,
+              PostgreSQL for relational audit storage, and plain
+              HTML/CSS/JavaScript for the frontend to ensure the UI itself
+              remains as lightweight as possible.
+            </p>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px">
+            <div class="card" style="padding: 20px">
+              <div
+                style="
+                  font-size: 10px;
+                  font-weight: 700;
+                  color: var(--text-sub);
+                  text-transform: uppercase;
+                  letter-spacing: 0.7px;
+                  margin-bottom: 12px;
+                "
+              >
+                Tech Stack
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 13px;
+                  "
+                >
+                  <span style="color: var(--text-sub)">Backend</span>
+                  <span style="color: var(--text); font-weight: 500"
+                    >Python 3.11 · FastAPI · asyncpg</span
+                  >
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 13px;
+                  "
+                >
+                  <span style="color: var(--text-sub)">Database</span>
+                  <span style="color: var(--text); font-weight: 500"
+                    >PostgreSQL 16 · SQLAlchemy 2.0</span
+                  >
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 13px;
+                  "
+                >
+                  <span style="color: var(--text-sub)">Scraper</span>
+                  <span style="color: var(--text); font-weight: 500"
+                    >httpx · BeautifulSoup4 · lxml</span
+                  >
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 13px;
+                  "
+                >
+                  <span style="color: var(--text-sub)">Frontend</span>
+                  <span style="color: var(--text); font-weight: 500"
+                    >HTML · CSS · JavaScript</span
+                  >
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 13px;
+                  "
+                >
+                  <span style="color: var(--text-sub)">Charts</span>
+                  <span style="color: var(--text); font-weight: 500"
+                    >Chart.js 4.4</span
+                  >
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 13px;
+                  "
+                >
+                  <span style="color: var(--text-sub)">Carbon model</span>
+                  <span style="color: var(--text); font-weight: 500"
+                    >Sustainable Web Design (SWD)</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="padding: 20px">
+              <div
+                style="
+                  font-size: 10px;
+                  font-weight: 700;
+                  color: var(--text-sub);
+                  text-transform: uppercase;
+                  letter-spacing: 0.7px;
+                  margin-bottom: 12px;
+                "
+              >
+                Key References
+              </div>
+              <div
+                style="
+                  display: flex;
+                  flex-direction: column;
+                  gap: 8px;
+                  font-size: 12px;
+                  color: var(--text-sub);
+                  line-height: 1.6;
+                "
+              >
+                <div>
+                  Greenwood, T. (2021) <em>Sustainable Web Design.</em> A Book
+                  Apart.
+                </div>
+                <div>
+                  Sustainable Web Design Model (2023)
+                  <a href="https://sustainablewebdesign.org" target="_blank"
+                    >sustainablewebdesign.org</a
+                  >
+                </div>
+                <div>
+                  Preist, C., Schien, D. &amp; Blevis, E. (2016) Understanding
+                  and Mitigating the Effects of Device and Infrastructure Design
+                  on the Carbon Footprint of Digital Services.
+                  <em>CHI 2016.</em>
+                </div>
+                <div>
+                  Climate Impact Partners (2023) Infographic: The Carbon
+                  Footprint of the Internet.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+       CTA
+  ═══════════════════════════════════════════════════════════════════════ -->
+    <section class="content-section" style="text-align: center">
+      <div class="content-inner">
+        <div class="badge badge-green" style="margin-bottom: 20px">
+          Ready to audit?
+        </div>
+        <div
+          style="
+            font-size: clamp(28px, 4vw, 48px);
+            font-weight: 700;
+            letter-spacing: -1.5px;
+            color: var(--text);
+            margin-bottom: 16px;
+          "
+        >
+          Find out what your website<br />is really costing the planet.
+        </div>
+        <p
+          style="
+            font-size: 15px;
+            color: var(--text-sub);
+            margin-bottom: 32px;
+            max-width: 460px;
+            margin-inline: auto;
+          "
+        >
+          Paste any URL and get a full element-level carbon report in seconds.
+          It's free, and it runs entirely on your own machine.
+        </p>
+        <a
+          href="index.html"
+          class="btn btn-primary"
+          style="font-size: 15px; padding: 13px 32px; text-decoration: none"
+        >
+          Start Auditing
+        </a>
+      </div>
+    </section>
+
+    <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+    <footer>
+      <div class="footer-inner">
+        <div class="footer-logo">
+          <div class="nav-logo-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path
+                d="M7 1C7 1 2 4.5 2 8.5C2 11.2 4.2 13 7 13C9.8 13 12 11.2 12 8.5C12 4.5 7 1 7 1Z"
+                stroke="white"
+                stroke-width="1.4"
+                fill="none"
+              />
+              <path
+                d="M7 6V10M5 8H9"
+                stroke="white"
+                stroke-width="1.4"
+                stroke-linecap="round"
+              />
+            </svg>
+          </div>
+          <span style="font-size: 13px; font-weight: 600; color: var(--text)"
+            >EcoWeb Auditor</span
+          >
+        </div>
+        <p class="footer-text">
+          BSc (Hons) Software Engineering · Final Year Project<br />
+          Wilson Francis Remoshan (2541691) · University of Bedfordshire<br />
+          Carbon calculations use the
+          <a href="https://sustainablewebdesign.org/" target="_blank"
+            >Sustainable Web Design</a
+          >
+          model.
+        </p>
+        <div class="footer-links">
+          <a href="index.html">Auditor</a>
+          <a href="about.html">About</a>
+          <a href="http://localhost:8000/docs" target="_blank">API Docs</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
