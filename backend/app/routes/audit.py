@@ -23,6 +23,7 @@ from app.schemas.audit import (
     AuditResponse,
     AssetInfo,
     CategoryBreakdown,
+    MLPrediction,
     RecentAuditItem,
 )
 from app.services.carbon import (
@@ -34,9 +35,70 @@ from app.services.carbon import (
     get_real_world_comparison,
 )
 from app.services.scraper import scrape_page
+from app.services import predictor
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Audit"])
+
+
+def build_ml_features(html_size: int, assets: list[dict]) -> dict:
+    """
+    Convert a completed audit's asset list into the exact feature
+    dictionary expected by the trained ML model (see
+    scripts/train_model.py :: FEATURE_COLUMNS and extract_features()).
+
+    This MUST mirror the feature engineering used during training,
+    otherwise predictions will be meaningless.
+    """
+    images  = [a for a in assets if a["asset_type"] == "image"]
+    scripts = [a for a in assets if a["asset_type"] == "script"]
+    css     = [a for a in assets if a["asset_type"] == "css"]
+    fonts   = [a for a in assets if a["asset_type"] == "font"]
+    media   = [a for a in assets if a["asset_type"] == "media"]
+
+    def total_kb(lst): return sum(a["size_bytes"] for a in lst) / 1024
+    def avg_kb(lst):   return (total_kb(lst) / len(lst)) if lst else 0
+    def max_kb(lst):   return max((a["size_bytes"] for a in lst), default=0) / 1024
+
+    all_bytes = html_size + sum(a["size_bytes"] for a in assets)
+
+    red_count   = sum(1 for a in assets if a["status"] == "red")
+    amber_count = sum(1 for a in assets if a["status"] == "amber")
+    green_count = sum(1 for a in assets if a["status"] == "green")
+
+    return {
+        "html_size_kb":         round(html_size / 1024, 2),
+        "total_assets":         len(assets),
+        "total_size_kb":        round(all_bytes / 1024, 2),
+
+        "image_count":          len(images),
+        "script_count":         len(scripts),
+        "css_count":            len(css),
+        "font_count":           len(fonts),
+        "media_count":          len(media),
+
+        "image_total_kb":       round(total_kb(images),  2),
+        "script_total_kb":      round(total_kb(scripts), 2),
+        "css_total_kb":         round(total_kb(css),     2),
+        "font_total_kb":        round(total_kb(fonts),   2),
+        "media_total_kb":       round(total_kb(media),   2),
+
+        "image_avg_kb":         round(avg_kb(images),  2),
+        "script_avg_kb":        round(avg_kb(scripts), 2),
+        "css_avg_kb":           round(avg_kb(css),     2),
+        "font_avg_kb":          round(avg_kb(fonts),   2),
+
+        "max_single_asset_kb":  round(max_kb(assets), 2),
+        "max_image_kb":         round(max_kb(images),  2),
+        "max_script_kb":        round(max_kb(scripts), 2),
+
+        "red_asset_count":      red_count,
+        "amber_asset_count":    amber_count,
+        "green_asset_count":    green_count,
+
+        "image_pct_of_weight":  round(total_kb(images)  / max(all_bytes / 1024, 1) * 100, 1),
+        "script_pct_of_weight": round(total_kb(scripts) / max(all_bytes / 1024, 1) * 100, 1),
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -131,6 +193,29 @@ async def run_audit(
         )
     ]
 
+    # ── 4b. ML cross-validation (research component) ─────────────────────────
+    # Build the same feature set used during model training and ask the
+    # trained model for an independent CO2 estimate. This is purely
+    # informational — the SWD formula remains the authoritative figure
+    # stored in the database and used for the grade.
+    ml_prediction: MLPrediction | None = None
+    if predictor.is_available():
+        ml_features = build_ml_features(html_size=scrape_result["html_size"], assets=assets_data)
+        ml_result = predictor.predict_co2(ml_features)
+        if ml_result:
+            swd_value = total_co2
+            ml_value = ml_result["predicted_co2_grams"]
+            diff_pct = (
+                round(((ml_value - swd_value) / swd_value) * 100, 1)
+                if swd_value > 0 else None
+            )
+            ml_prediction = MLPrediction(
+                predicted_co2_grams=ml_value,
+                model_name=ml_result["model_name"],
+                r2_score=ml_result["r2_score"],
+                difference_pct=diff_pct,
+            )
+
     # ── 5. Persist to database ────────────────────────────────────────────────
     audit_record = Audit(
         url=url,
@@ -182,7 +267,31 @@ async def run_audit(
         trees_to_offset=annual["trees_to_offset"],
         categories=categories,
         assets=[AssetInfo(**a) for a in assets_data],
+        ml_prediction=ml_prediction,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /api/model-info
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/model-info", summary="Get ML model status and metrics")
+async def get_model_info():
+    """
+    Return metadata about the trained ML model used for cross-validating
+    SWD predictions. Returns available=False if no model has been trained
+    yet (run scripts/collect_dataset.py then scripts/train_model.py).
+    """
+    info = predictor.get_model_info()
+    if not info:
+        return {
+            "available": False,
+            "message": (
+                "No trained model found. Run "
+                "scripts/collect_dataset.py then scripts/train_model.py."
+            ),
+        }
+    return {"available": True, **info}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

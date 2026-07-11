@@ -59,6 +59,18 @@ class CategoryBreakdown(BaseModel):
     percentage: float        # Share of overall page CO2 (0–100)
 
 
+class MLPrediction(BaseModel):
+    """
+    Independent ML-based CO2 prediction, used to cross-validate the
+    SWD formula's result (research validation component).
+    """
+
+    predicted_co2_grams: float
+    model_name: str
+    r2_score: Optional[float] = None
+    difference_pct: Optional[float] = None
+
+
 # ── Primary response ──────────────────────────────────────────────────────────
 
 class AuditResponse(BaseModel):
@@ -90,6 +102,9 @@ class AuditResponse(BaseModel):
 
     # ── Individual assets ─────────────────────────────────────────────────────
     assets: List[AssetInfo]
+
+    # ── ML cross-validation (research component) ─────────────────────────────
+    ml_prediction: Optional[MLPrediction] = None
 
     model_config = {"from_attributes": True}
 

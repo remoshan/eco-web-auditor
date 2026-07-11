@@ -156,10 +156,11 @@ def extract_assets_from_html(html: str, base_url: str) -> list[dict]:
 async def fetch_asset_info(client: httpx.AsyncClient, asset: dict) -> dict:
     """
     Determine the byte size and MIME type of a single asset.
+
     Strategy:
-      1. HEAD request → Content-Length header
-      2. Range GET (bytes=0-0) → Content-Range total
-      3. Full GET with stream → count bytes directly (capped at 5 MB)
+      1. HEAD request → read Content-Length header
+      2. Range GET (bytes=0-0) → read Content-Range total
+      3. Give up and record size as 0 (asset will be excluded from results)
     """
     url = asset["url"]
     asset_type = asset["asset_type"]
@@ -167,18 +168,21 @@ async def fetch_asset_info(client: httpx.AsyncClient, asset: dict) -> dict:
     content_type = ""
 
     try:
-        # ── Attempt 1: HEAD request ───────────────────────────────────────
+        # ── Attempt 1: HEAD request ───────────────────────────────────────────
         head = await client.head(
-            url, headers=BROWSER_HEADERS, timeout=8.0, follow_redirects=True
+            url,
+            headers=BROWSER_HEADERS,
+            timeout=8.0,
+            follow_redirects=True,
         )
         content_type = head.headers.get("content-type", "").split(";")[0].strip()
-        raw_length = head.headers.get("content-length", "")
+        raw_length = head.headers.get("content-length")
 
-        if raw_length.isdigit() and int(raw_length) > 0:
+        if raw_length and raw_length.isdigit():
             size_bytes = int(raw_length)
 
         else:
-            # ── Attempt 2: Range GET ──────────────────────────────────────
+            # ── Attempt 2: Range GET to discover total size ───────────────────
             rng = await client.get(
                 url,
                 headers={**BROWSER_HEADERS, "Range": "bytes=0-0"},
@@ -190,28 +194,17 @@ async def fetch_asset_info(client: httpx.AsyncClient, asset: dict) -> dict:
                 total_str = cr.split("/")[-1]
                 if total_str.isdigit():
                     size_bytes = int(total_str)
-
-            if size_bytes == 0:
-                # ── Attempt 3: Stream and count bytes (cap at 5 MB) ───────
-                total = 0
-                cap = 5 * 1024 * 1024  # 5 MB safety cap
-                async with client.stream(
-                    "GET", url, headers=BROWSER_HEADERS,
-                    timeout=10.0, follow_redirects=True
-                ) as resp:
-                    content_type = resp.headers.get(
-                        "content-type", content_type
-                    ).split(";")[0].strip()
-                    async for chunk in resp.aiter_bytes(chunk_size=8192):
-                        total += len(chunk)
-                        if total >= cap:
-                            break
-                size_bytes = total
+            ct = rng.headers.get("content-type", "")
+            if ct:
+                content_type = ct.split(";")[0].strip()
 
     except Exception as exc:
         logger.debug("Could not size asset %s: %s", url, exc)
 
+    # Refine asset_type using the MIME type if available
     refined_type = _refine_asset_type(asset_type, content_type)
+
+    # Extract a readable filename from the URL path
     path_part = urlparse(url).path.rstrip("/")
     filename = path_part.split("/")[-1].split("?")[0] or "unknown"
 

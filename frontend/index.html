@@ -1,486 +1,334 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EcoWeb Auditor – Carbon Footprint Scanner</title>
-    <meta
-      name="description"
-      content="Analyse the carbon footprint of any website at the element level. Free, open, and built on the Sustainable Web Design model."
-    />
-    <link rel="stylesheet" href="css/main.css" />
-    <!-- Chart.js from CDN -->
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"
-      defer
-    ></script>
-    <!-- App scripts (order matters) -->
-    <script src="js/main.js" defer></script>
-    <script src="js/charts.js" defer></script>
-    <script src="js/audit.js" defer></script>
-  </head>
-  <body>
-    <!-- ── Ambient background orbs ──────────────────────────────────────────── -->
-    <div
-      class="orb"
-      style="
-        width: 560px;
-        height: 560px;
-        top: 4%;
-        left: 2%;
-        background: radial-gradient(
-          circle,
-          rgba(52, 199, 89, 0.09) 0%,
-          transparent 65%
-        );
-      "
-    ></div>
-    <div
-      class="orb"
-      style="
-        width: 640px;
-        height: 640px;
-        bottom: 10%;
-        right: 2%;
-        background: radial-gradient(
-          circle,
-          rgba(10, 132, 255, 0.07) 0%,
-          transparent 65%
-        );
-      "
-    ></div>
-    <div
-      class="orb"
-      style="
-        width: 500px;
-        height: 500px;
-        top: 45%;
-        left: 42%;
-        transform: translate(-50%, -50%);
-        background: radial-gradient(
-          circle,
-          rgba(52, 199, 89, 0.04) 0%,
-          transparent 65%
-        );
-      "
-    ></div>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EcoWeb Auditor – Carbon Footprint Scanner</title>
+  <meta name="description" content="Analyse the carbon footprint of any website at the element level. Free, open, and built on the Sustainable Web Design model."/>
+  <link rel="stylesheet" href="css/main.css"/>
+  <!-- Chart.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+  <!-- App scripts (order matters) -->
+  <script src="js/main.js"   defer></script>
+  <script src="js/charts.js" defer></script>
+  <script src="js/audit.js"  defer></script>
+</head>
+<body>
 
-    <!-- ── Navigation ────────────────────────────────────────────────────────── -->
-    <nav class="nav">
-      <a class="nav-logo" href="index.html">
-        <div class="nav-logo-icon">
-          <!-- Leaf / drop icon -->
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path
-              d="M7 1C7 1 2 4.5 2 8.5C2 11.2 4.2 13 7 13C9.8 13 12 11.2 12 8.5C12 4.5 7 1 7 1Z"
-              stroke="white"
-              stroke-width="1.4"
-              fill="none"
-            />
-            <path
-              d="M7 6V10M5 8H9"
-              stroke="white"
-              stroke-width="1.4"
-              stroke-linecap="round"
-            />
-          </svg>
-        </div>
-        <span class="nav-logo-text">EcoWeb Auditor</span>
-      </a>
-      <div class="nav-links">
-        <a href="index.html" class="active">Auditor</a>
-        <a href="about.html">About</a>
+  <!-- ── Ambient background orbs ──────────────────────────────────────────── -->
+  <div class="orb" style="width:560px;height:560px;top:4%;left:2%;
+    background:radial-gradient(circle,rgba(52,199,89,0.09) 0%,transparent 65%)"></div>
+  <div class="orb" style="width:640px;height:640px;bottom:10%;right:2%;
+    background:radial-gradient(circle,rgba(10,132,255,0.07) 0%,transparent 65%)"></div>
+  <div class="orb" style="width:500px;height:500px;top:45%;left:42%;transform:translate(-50%,-50%);
+    background:radial-gradient(circle,rgba(52,199,89,0.04) 0%,transparent 65%)"></div>
+
+  <!-- ── Navigation ────────────────────────────────────────────────────────── -->
+  <nav class="nav">
+    <a class="nav-logo" href="index.html">
+      <div class="nav-logo-icon">
+        <!-- Leaf / drop icon -->
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1C7 1 2 4.5 2 8.5C2 11.2 4.2 13 7 13C9.8 13 12 11.2 12 8.5C12 4.5 7 1 7 1Z"
+            stroke="white" stroke-width="1.4" fill="none"/>
+          <path d="M7 6V10M5 8H9" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
       </div>
-    </nav>
+      <span class="nav-logo-text">EcoWeb Auditor</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="active">Auditor</a>
+      <a href="about.html">About</a>
+    </div>
+  </nav>
 
-    <!-- ── Error banner (hidden by default) ──────────────────────────────────── -->
-    <div
-      id="error-banner"
-      class="hidden"
-      style="
-        position: fixed;
-        top: 70px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(255, 59, 48, 0.12);
-        border: 1px solid rgba(255, 59, 48, 0.3);
-        border-radius: 12px;
-        padding: 10px 22px;
-        font-size: 13px;
-        color: #ff3b30;
-        z-index: 200;
-        max-width: 500px;
-        text-align: center;
-        backdrop-filter: blur(20px);
-      "
-    ></div>
+  <!-- ── Error banner (hidden by default) ──────────────────────────────────── -->
+  <div id="error-banner" class="hidden" style="
+    position:fixed;top:70px;left:50%;transform:translateX(-50%);
+    background:rgba(255,59,48,0.12);border:1px solid rgba(255,59,48,0.3);
+    border-radius:12px;padding:10px 22px;font-size:13px;color:#FF3B30;
+    z-index:200;max-width:500px;text-align:center;
+    backdrop-filter:blur(20px);"></div>
 
-    <!-- ══════════════════════════════════════════════════════════════════════
+  <!-- ══════════════════════════════════════════════════════════════════════
        TIER 1 – SCANNER / HERO
   ═══════════════════════════════════════════════════════════════════════ -->
-    <section id="hero-section" class="hero">
-      <div class="badge badge-green">
-        Digital Sustainability Audit · SWD Model
+  <section id="hero-section" class="hero">
+
+    <div class="badge badge-green">Digital Sustainability Audit · SWD Model</div>
+
+    <h1 class="hero-title">
+      Your website has a<br>
+      <span class="gradient-text">carbon footprint.</span>
+    </h1>
+
+    <p class="hero-sub">
+      Audit every image, script, and stylesheet. Discover exactly which
+      elements are costing the planet — and how to fix them.
+    </p>
+
+    <!-- URL input bar -->
+    <div class="search-wrap" id="search-wrap">
+      <svg class="search-icon" width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <circle cx="6.5" cy="6.5" r="5" stroke="#86868B" stroke-width="1.4"/>
+        <path d="M10 10L13 13" stroke="#86868B" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <input
+        type="url"
+        id="url-input"
+        placeholder="https://yourwebsite.com"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Website URL to audit"
+      />
+      <button class="btn btn-primary" id="audit-btn" aria-label="Start audit">
+        Audit Now
+      </button>
+    </div>
+
+    <!-- Research stats from the project survey -->
+    <div class="stats-strip">
+      <div class="stat-item">
+        <div class="stat-val">3.7%</div>
+        <div class="stat-lbl">of global GHG emissions from ICT</div>
       </div>
-
-      <h1 class="hero-title">
-        Your website has a<br />
-        <span class="gradient-text">carbon footprint.</span>
-      </h1>
-
-      <p class="hero-sub">
-        Audit every image, script, and stylesheet. Discover exactly which
-        elements are costing the planet — and how to fix them.
-      </p>
-
-      <!-- URL input bar -->
-      <div class="search-wrap" id="search-wrap">
-        <svg
-          class="search-icon"
-          width="15"
-          height="15"
-          viewBox="0 0 15 15"
-          fill="none"
-        >
-          <circle cx="6.5" cy="6.5" r="5" stroke="#86868B" stroke-width="1.4" />
-          <path
-            d="M10 10L13 13"
-            stroke="#86868B"
-            stroke-width="1.4"
-            stroke-linecap="round"
-          />
-        </svg>
-        <input
-          type="url"
-          id="url-input"
-          placeholder="https://yourwebsite.com"
-          autocomplete="off"
-          spellcheck="false"
-          aria-label="Website URL to audit"
-        />
-        <button class="btn btn-primary" id="audit-btn" aria-label="Start audit">
-          Audit Now
-        </button>
+      <div class="stat-item">
+        <div class="stat-val">90.3%</div>
+        <div class="stat-lbl">of developers want element-level data</div>
       </div>
-
-      <!-- Research stats from the project survey -->
-      <div class="stats-strip">
-        <div class="stat-item">
-          <div class="stat-val">3.7%</div>
-          <div class="stat-lbl">of global GHG emissions from ICT</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-val">90.3%</div>
-          <div class="stat-lbl">of developers want element-level data</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-val">83.9%</div>
-          <div class="stat-lbl">already optimise for loading speed</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-val">A+–F</div>
-          <div class="stat-lbl">sustainability grade per page</div>
-        </div>
+      <div class="stat-item">
+        <div class="stat-val">83.9%</div>
+        <div class="stat-lbl">already optimise for loading speed</div>
       </div>
-    </section>
+      <div class="stat-item">
+        <div class="stat-val">A+–F</div>
+        <div class="stat-lbl">sustainability grade per page</div>
+      </div>
+    </div>
+  </section>
 
-    <!-- ══════════════════════════════════════════════════════════════════════
+  <!-- ══════════════════════════════════════════════════════════════════════
        TIER 2 – LOADING
   ═══════════════════════════════════════════════════════════════════════ -->
-    <section id="loading-section" class="hidden">
-      <div class="loading-inner">
-        <!-- Spinning icon -->
-        <div class="loading-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <circle
-              cx="12"
-              cy="12"
-              r="9"
-              stroke="white"
-              stroke-width="2"
-              stroke-dasharray="6 4"
-              fill="none"
-            />
-          </svg>
-        </div>
+  <section id="loading-section" class="hidden">
+    <div class="loading-inner">
 
-        <div class="section-label" style="margin-bottom: 6px">Scanning</div>
-        <div
-          id="loading-url"
-          style="
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--text);
-            word-break: break-all;
-            letter-spacing: -0.2px;
-            margin-bottom: 0;
-          "
-        ></div>
-
-        <!-- Step indicators built dynamically by audit.js -->
-        <div class="loading-steps" id="loading-steps"></div>
+      <!-- Spinning icon -->
+      <div class="loading-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="9" stroke="white" stroke-width="2"
+            stroke-dasharray="6 4" fill="none"/>
+        </svg>
       </div>
-    </section>
 
-    <!-- ══════════════════════════════════════════════════════════════════════
+      <div class="section-label" style="margin-bottom:6px;">Scanning</div>
+      <div id="loading-url" style="font-size:14px;font-weight:500;color:var(--text);
+        word-break:break-all;letter-spacing:-0.2px;margin-bottom:0;"></div>
+
+      <!-- Step indicators built dynamically by audit.js -->
+      <div class="loading-steps" id="loading-steps"></div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
        TIER 3 – RESULTS DASHBOARD
   ═══════════════════════════════════════════════════════════════════════ -->
-    <section id="results-section" class="hidden" style="padding-top: 80px">
-      <div
-        class="results-inner"
-        style="max-width: 1100px; margin: 0 auto; padding: 28px 24px 0"
-      >
-        <!-- Header row: Back button · URL · Grade pill -->
-        <div class="results-header">
-          <div
-            style="
-              display: flex;
-              align-items: center;
-              gap: 12px;
-              flex-wrap: wrap;
-            "
-          >
-            <button
-              class="btn btn-ghost"
-              onclick="goBack()"
-              style="padding: 7px 14px; font-size: 12px"
-            >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                <path
-                  d="M7 2L3 5L7 8"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linecap="round"
-                />
-              </svg>
-              Back
-            </button>
-            <div class="results-url">
-              Results for <span id="result-url"></span>
-            </div>
+  <section id="results-section" class="hidden" style="padding-top:80px;">
+    <div class="results-inner" style="max-width:1100px;margin:0 auto;padding:28px 24px 0;">
+
+      <!-- Header row: Back button · URL · Grade pill -->
+      <div class="results-header">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <button class="btn btn-ghost" onclick="goBack()" style="padding:7px 14px;font-size:12px;">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M7 2L3 5L7 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            Back
+          </button>
+          <div class="results-url">
+            Results for <span id="result-url"></span>
           </div>
-          <div class="grade-pill" id="result-grade-pill"></div>
+        </div>
+        <div class="grade-pill" id="result-grade-pill"></div>
+      </div>
+
+      <!-- ── Row 1: Grade Gauge + 3 metric cards ─────────────────────────── -->
+      <div class="bento-row-1">
+
+        <!-- Grade gauge -->
+        <div class="card gauge-card">
+          <div>
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              <!-- Track -->
+              <circle cx="80" cy="80" r="62" fill="none"
+                stroke="rgba(255,255,255,0.06)" stroke-width="9"/>
+              <!-- Progress arc – filled by JS -->
+              <circle id="gauge-arc" cx="80" cy="80" r="62" fill="none"
+                stroke="#34C759" stroke-width="9" stroke-linecap="round"
+                stroke-dasharray="0 389.56"
+                transform="rotate(-90 80 80)"
+                style="transition:stroke-dasharray 0.8s ease,stroke 0.4s ease;"/>
+              <!-- Grade label -->
+              <text id="gauge-grade" x="80" y="73" text-anchor="middle"
+                fill="#F5F5F7" font-size="38" font-weight="700"
+                font-family="-apple-system,BlinkMacSystemFont,sans-serif">–</text>
+              <!-- Score sub-label -->
+              <text id="gauge-score" x="80" y="94" text-anchor="middle"
+                fill="#86868B" font-size="11"
+                font-family="-apple-system,BlinkMacSystemFont,sans-serif">–</text>
+            </svg>
+            <div class="gauge-label" id="gauge-label" style="color:var(--green);">–</div>
+          </div>
         </div>
 
-        <!-- ── Row 1: Grade Gauge + 3 metric cards ─────────────────────────── -->
-        <div class="bento-row-1">
-          <!-- Grade gauge -->
-          <div class="card gauge-card">
-            <div>
-              <svg width="160" height="160" viewBox="0 0 160 160">
-                <!-- Track -->
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="62"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.06)"
-                  stroke-width="9"
-                />
-                <!-- Progress arc – filled by JS -->
-                <circle
-                  id="gauge-arc"
-                  cx="80"
-                  cy="80"
-                  r="62"
-                  fill="none"
-                  stroke="#34C759"
-                  stroke-width="9"
-                  stroke-linecap="round"
-                  stroke-dasharray="0 389.56"
-                  transform="rotate(-90 80 80)"
-                  style="
-                    transition:
-                      stroke-dasharray 0.8s ease,
-                      stroke 0.4s ease;
-                  "
-                />
-                <!-- Grade label -->
-                <text
-                  id="gauge-grade"
-                  x="80"
-                  y="73"
-                  text-anchor="middle"
-                  fill="#F5F5F7"
-                  font-size="38"
-                  font-weight="700"
-                  font-family="-apple-system,BlinkMacSystemFont,sans-serif"
-                >
-                  –
-                </text>
-                <!-- Score sub-label -->
-                <text
-                  id="gauge-score"
-                  x="80"
-                  y="94"
-                  text-anchor="middle"
-                  fill="#86868B"
-                  font-size="11"
-                  font-family="-apple-system,BlinkMacSystemFont,sans-serif"
-                >
-                  –
-                </text>
-              </svg>
-              <div
-                class="gauge-label"
-                id="gauge-label"
-                style="color: var(--green)"
-              >
-                –
+        <!-- Carbon per visit -->
+        <div class="card metric-card">
+          <div class="metric-label">Per-visit carbon</div>
+          <div>
+            <div class="metric-value green" id="metric-co2">–</div>
+            <div class="metric-unit">CO₂ per page visit</div>
+          </div>
+          <div class="metric-foot" id="metric-annual">–</div>
+        </div>
+
+        <!-- Page weight -->
+        <div class="card metric-card">
+          <div class="metric-label">Page weight</div>
+          <div>
+            <div class="metric-value" id="metric-weight">–</div>
+            <div class="metric-unit">transferred</div>
+          </div>
+          <div class="metric-foot" id="metric-requests">–</div>
+        </div>
+
+        <!-- Real-world comparison -->
+        <div class="card metric-card">
+          <div class="metric-label">Real-world equivalent</div>
+          <div class="metric-comparison" id="metric-comparison" style="flex:1;display:flex;align-items:center;">–</div>
+          <div class="metric-foot" id="metric-trees">–</div>
+        </div>
+
+      </div><!-- /bento-row-1 -->
+
+      <!-- ── Row 2: Pie chart + Bar chart ────────────────────────────────── -->
+      <div class="bento-row-2">
+
+        <!-- Doughnut – emissions by category -->
+        <div class="card">
+          <div class="chart-title">Emissions by asset type</div>
+          <div class="pie-inner">
+            <canvas id="pie-chart" width="148" height="148" style="flex-shrink:0;"></canvas>
+            <div class="pie-legend" id="pie-legend"></div>
+          </div>
+        </div>
+
+        <!-- Bar – CO₂ per category -->
+        <div class="card">
+          <div class="chart-title">CO₂ per category (g per visit)</div>
+          <div style="height:148px;position:relative;">
+            <canvas id="bar-chart"></canvas>
+          </div>
+        </div>
+
+      </div><!-- /bento-row-2 -->
+
+      <!-- ── ML Cross-Validation Card (hidden if no model trained) ───────── -->
+      <div class="card hidden" id="ml-card" style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+          <div style="flex:1;min-width:240px;">
+            <div class="chart-title" style="margin-bottom:6px;">
+              ML Model Cross-Validation
+              <span class="badge badge-green" style="margin-left:8px;vertical-align:middle;">Research Component</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-sub);line-height:1.6;">
+              An independently trained <span id="ml-model-name" style="color:var(--text);font-weight:500;">–</span>
+              regression model (R² = <span id="ml-r2" style="color:var(--text);font-weight:500;">–</span>)
+              predicts <strong id="ml-predicted" class="green">–</strong> CO₂ for this page based on its
+              element-level features — a difference of
+              <strong id="ml-diff" style="color:var(--text);">–</strong> from the SWD formula result.
+            </div>
+          </div>
+          <div style="text-align:center;flex-shrink:0;">
+            <div style="font-size:10px;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;">
+              SWD vs ML
+            </div>
+            <div style="display:flex;gap:18px;align-items:flex-end;">
+              <div>
+                <div style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-1px;" id="ml-swd-value">–</div>
+                <div style="font-size:10px;color:var(--text-sub);">SWD formula</div>
+              </div>
+              <div style="font-size:18px;color:var(--text-muted);">vs</div>
+              <div>
+                <div style="font-size:22px;font-weight:700;color:var(--green);letter-spacing:-1px;" id="ml-model-value">–</div>
+                <div style="font-size:10px;color:var(--text-sub);">ML model</div>
               </div>
             </div>
-          </div>
-
-          <!-- Carbon per visit -->
-          <div class="card metric-card">
-            <div class="metric-label">Per-visit carbon</div>
-            <div>
-              <div class="metric-value green" id="metric-co2">–</div>
-              <div class="metric-unit">CO₂ per page visit</div>
-            </div>
-            <div class="metric-foot" id="metric-annual">–</div>
-          </div>
-
-          <!-- Page weight -->
-          <div class="card metric-card">
-            <div class="metric-label">Page weight</div>
-            <div>
-              <div class="metric-value" id="metric-weight">–</div>
-              <div class="metric-unit">transferred</div>
-            </div>
-            <div class="metric-foot" id="metric-requests">–</div>
-          </div>
-
-          <!-- Real-world comparison -->
-          <div class="card metric-card">
-            <div class="metric-label">Real-world equivalent</div>
-            <div
-              class="metric-comparison"
-              id="metric-comparison"
-              style="flex: 1; display: flex; align-items: center"
-            >
-              –
-            </div>
-            <div class="metric-foot" id="metric-trees">–</div>
-          </div>
-        </div>
-        <!-- /bento-row-1 -->
-
-        <!-- ── Row 2: Pie chart + Bar chart ────────────────────────────────── -->
-        <div class="bento-row-2">
-          <!-- Doughnut – emissions by category -->
-          <div class="card">
-            <div class="chart-title">Emissions by asset type</div>
-            <div class="pie-inner">
-              <canvas
-                id="pie-chart"
-                width="148"
-                height="148"
-                style="flex-shrink: 0"
-              ></canvas>
-              <div class="pie-legend" id="pie-legend"></div>
-            </div>
-          </div>
-
-          <!-- Bar – CO₂ per category -->
-          <div class="card">
-            <div class="chart-title">CO₂ per category (g per visit)</div>
-            <div style="height: 148px; position: relative">
-              <canvas id="bar-chart"></canvas>
-            </div>
-          </div>
-        </div>
-        <!-- /bento-row-2 -->
-
-        <!-- ── Row 3: Asset deep-dive ───────────────────────────────────────── -->
-        <div class="card" style="margin-bottom: 14px">
-          <div class="asset-header">
-            <div>
-              <div class="asset-title">Asset Deep Dive</div>
-              <div class="asset-subtitle">
-                Click any asset to see the issue and how to fix it
-              </div>
-            </div>
-            <!-- Filter tabs – built dynamically by audit.js -->
-            <div class="filter-tabs" id="filter-tabs"></div>
-          </div>
-          <div class="asset-list" id="asset-list">
-            <!-- Asset rows injected by audit.js -->
           </div>
         </div>
       </div>
-      <!-- /results-inner -->
-    </section>
 
-    <!-- ══════════════════════════════════════════════════════════════════════
+      <!-- ── Row 3: Asset deep-dive ───────────────────────────────────────── -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="asset-header">
+          <div>
+            <div class="asset-title">Asset Deep Dive</div>
+            <div class="asset-subtitle">Click any asset to see the issue and how to fix it</div>
+          </div>
+          <!-- Filter tabs – built dynamically by audit.js -->
+          <div class="filter-tabs" id="filter-tabs"></div>
+        </div>
+        <div class="asset-list" id="asset-list">
+          <!-- Asset rows injected by audit.js -->
+        </div>
+      </div>
+
+    </div><!-- /results-inner -->
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
        RECENT AUDITS HISTORY
   ═══════════════════════════════════════════════════════════════════════ -->
-    <section id="recent-section" style="padding: 0 24px 80px">
-      <div style="max-width: 1100px; margin: 0 auto">
-        <div style="margin-bottom: 6px" class="section-label">
-          Audit History
-        </div>
-        <div
-          style="
-            font-size: 22px;
-            font-weight: 700;
-            color: var(--text);
-            letter-spacing: -0.6px;
-            margin-bottom: 4px;
-          "
-        >
-          Recent Audits
-        </div>
-        <div
-          style="font-size: 13px; color: var(--text-sub); margin-bottom: 20px"
-        >
-          Click a row to reload a saved audit.
-        </div>
-        <div class="recent-grid" id="recent-grid">
-          <!-- Rows injected by audit.js -->
-        </div>
+  <section id="recent-section" style="padding:0 24px 80px;">
+    <div style="max-width:1100px;margin:0 auto;">
+      <div style="margin-bottom:6px;" class="section-label">Audit History</div>
+      <div style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.6px;margin-bottom:4px;">
+        Recent Audits
       </div>
-    </section>
+      <div style="font-size:13px;color:var(--text-sub);margin-bottom:20px;">
+        Click a row to reload a saved audit.
+      </div>
+      <div class="recent-grid" id="recent-grid">
+        <!-- Rows injected by audit.js -->
+      </div>
+    </div>
+  </section>
 
-    <!-- ── Footer ─────────────────────────────────────────────────────────── -->
-    <footer>
-      <div class="footer-inner">
-        <div class="footer-logo">
-          <div class="nav-logo-icon">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path
-                d="M7 1C7 1 2 4.5 2 8.5C2 11.2 4.2 13 7 13C9.8 13 12 11.2 12 8.5C12 4.5 7 1 7 1Z"
-                stroke="white"
-                stroke-width="1.4"
-                fill="none"
-              />
-              <path
-                d="M7 6V10M5 8H9"
-                stroke="white"
-                stroke-width="1.4"
-                stroke-linecap="round"
-              />
-            </svg>
-          </div>
-          <span style="font-size: 13px; font-weight: 600; color: var(--text)"
-            >EcoWeb Auditor</span
-          >
+  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-logo">
+        <div class="nav-logo-icon">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 1C7 1 2 4.5 2 8.5C2 11.2 4.2 13 7 13C9.8 13 12 11.2 12 8.5C12 4.5 7 1 7 1Z"
+              stroke="white" stroke-width="1.4" fill="none"/>
+            <path d="M7 6V10M5 8H9" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
         </div>
-        <p class="footer-text">
-          BSc (Hons) Software Engineering · Final Year Project<br />
-          Wilson Francis Remoshan (2541691) · University of Bedfordshire<br />
-          Carbon calculations use the
-          <a href="https://sustainablewebdesign.org/" target="_blank"
-            >Sustainable Web Design</a
-          >
-          model.
-        </p>
-        <div class="footer-links">
-          <a href="index.html">Auditor</a>
-          <a href="about.html">About</a>
-          <a href="http://localhost:8000/docs" target="_blank">API Docs</a>
-        </div>
+        <span style="font-size:13px;font-weight:600;color:var(--text);">EcoWeb Auditor</span>
       </div>
-    </footer>
-  </body>
+      <p class="footer-text">
+        BSc (Hons) Software Engineering · Final Year Project<br>
+        Wilson Francis Remoshan (2541691) · University of Bedfordshire<br>
+        Carbon calculations use the <a href="https://sustainablewebdesign.org/" target="_blank">Sustainable Web Design</a> model.
+      </p>
+      <div class="footer-links">
+        <a href="index.html">Auditor</a>
+        <a href="about.html">About</a>
+        <a href="http://localhost:8000/docs" target="_blank">API Docs</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
 </html>
