@@ -13,18 +13,18 @@
 "use strict";
 
 // ── DOM references ────────────────────────────────────────────────────────────
-const heroSection = document.getElementById("hero-section");
+const heroSection    = document.getElementById("hero-section");
 const loadingSection = document.getElementById("loading-section");
 const resultsSection = document.getElementById("results-section");
-const recentSection = document.getElementById("recent-section");
-const urlInput = document.getElementById("url-input");
-const searchWrap = document.getElementById("search-wrap");
-const auditBtn = document.getElementById("audit-btn");
+const recentSection  = document.getElementById("recent-section");
+const urlInput       = document.getElementById("url-input");
+const searchWrap     = document.getElementById("search-wrap");
+const auditBtn       = document.getElementById("audit-btn");
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentAuditData = null;
-let activeFilter = "all";
-let loadTimer = null;
+let activeFilter     = "all";
+let loadTimer        = null;
 
 // ── Loading steps ─────────────────────────────────────────────────────────────
 const LOADING_STEPS = [
@@ -153,12 +153,12 @@ function buildLoadingSteps() {
         <div class="pulse"></div>
       </div>
       <span class="step-text" id="step-text-${i}">${text}</span>
-    </div>`,
+    </div>`
   ).join("");
 }
 
 function setStepState(index, state) {
-  const dot = document.getElementById(`step-dot-${index}`);
+  const dot  = document.getElementById(`step-dot-${index}`);
   const text = document.getElementById(`step-text-${index}`);
   if (!dot) return;
   dot.classList.remove("done", "active");
@@ -194,45 +194,42 @@ function renderDashboard(data) {
   const { formatBytes, formatCO2, gradeColor, statusColor } = window.EcoUtil;
 
   // ── Header ────────────────────────────────────────────────────────────────
-  const urlEl = document.getElementById("result-url");
+  const urlEl   = document.getElementById("result-url");
   const gradePill = document.getElementById("result-grade-pill");
   if (urlEl) urlEl.textContent = data.url;
   if (gradePill) {
     const col = gradeColor(data.grade);
     gradePill.textContent = `${data.grade} Grade`;
     gradePill.style.background = `${col}18`;
-    gradePill.style.border = `1px solid ${col}40`;
-    gradePill.style.color = col;
+    gradePill.style.border     = `1px solid ${col}40`;
+    gradePill.style.color      = col;
   }
 
   // ── Grade Gauge (SVG) ─────────────────────────────────────────────────────
-  const CIRC = 2 * Math.PI * 62; // r = 62
+  const CIRC  = 2 * Math.PI * 62;        // r = 62
   const filled = (data.score / 100) * CIRC;
-  const col = gradeColor(data.grade);
-  const label =
-    data.score >= 80
-      ? "Sustainable"
-      : data.score >= 60
-        ? "Needs Work"
-        : "High Impact";
+  const col    = gradeColor(data.grade);
+  const label  = data.score >= 80 ? "Sustainable"
+               : data.score >= 60 ? "Needs Work"
+               : "High Impact";
 
-  setEl("gauge-arc", "stroke-dasharray", `${filled} ${CIRC}`);
-  setEl("gauge-arc", "stroke", col);
-  setEl("gauge-grade", "textContent", data.grade);
-  setEl("gauge-score", "textContent", `Score ${data.score}/100`);
+  setEl("gauge-arc",   "stroke-dasharray", `${filled} ${CIRC}`);
+  setEl("gauge-arc",   "stroke",           col);
+  setEl("gauge-grade", "textContent",      data.grade);
+  setEl("gauge-score", "textContent",      `Score ${data.score}/100`);
   const gaugeLabel = document.getElementById("gauge-label");
-  if (gaugeLabel) {
-    gaugeLabel.textContent = label;
-    gaugeLabel.style.color = col;
-  }
+  if (gaugeLabel) { gaugeLabel.textContent = label; gaugeLabel.style.color = col; }
 
   // ── Metric cards ──────────────────────────────────────────────────────────
-  setTxt("metric-co2", `${formatCO2(data.total_co2)}`);
-  setTxt("metric-annual", `${data.annual_co2_kg} kg CO₂/yr`);
-  setTxt("metric-weight", `${data.page_weight_mb} MB`);
-  setTxt("metric-requests", `${data.request_count} requests`);
+  setTxt("metric-co2",     `${formatCO2(data.total_co2)}`);
+  setTxt("metric-annual",  `${data.annual_co2_kg} kg CO₂/yr`);
+  setTxt("metric-weight",  `${data.page_weight_mb} MB`);
+  setTxt("metric-requests",`${data.request_count} requests`);
   setTxt("metric-comparison", data.comparison);
-  setTxt("metric-trees", `${data.trees_to_offset} trees to offset annually`);
+  setTxt("metric-trees",   `${data.trees_to_offset} trees to offset annually`);
+
+  // ── ML cross-validation card (research component) ─────────────────────────
+  renderMLCard(data);
 
   // ── Charts ────────────────────────────────────────────────────────────────
   window.EcoCharts?.destroyAll();
@@ -248,15 +245,54 @@ function renderDashboard(data) {
   setupFilterTabs(data.assets);
 }
 
+// ── ML cross-validation card ────────────────────────────────────────────────
+
+/**
+ * Show/hide and populate the ML cross-validation card based on whether
+ * the API returned an ml_prediction object (i.e. a trained model exists).
+ */
+function renderMLCard(data) {
+  const card = document.getElementById("ml-card");
+  if (!card) return;
+
+  const ml = data.ml_prediction;
+  if (!ml) {
+    card.classList.add("hidden");
+    return;
+  }
+
+  const { formatCO2 } = window.EcoUtil;
+
+  card.classList.remove("hidden");
+  setTxt("ml-model-name", ml.model_name);
+  setTxt("ml-r2", ml.r2_score != null ? ml.r2_score.toFixed(4) : "–");
+  setTxt("ml-predicted", `${formatCO2(ml.predicted_co2_grams)}`);
+
+  const diffEl = document.getElementById("ml-diff");
+  if (diffEl) {
+    const diff = ml.difference_pct;
+    if (diff == null) {
+      diffEl.textContent = "–";
+    } else {
+      const sign = diff > 0 ? "+" : "";
+      diffEl.textContent = `${sign}${diff}%`;
+      diffEl.style.color = Math.abs(diff) <= 15 ? "var(--green)" : "var(--amber)";
+    }
+  }
+
+  setTxt("ml-swd-value", formatCO2(data.total_co2));
+  setTxt("ml-model-value", formatCO2(ml.predicted_co2_grams));
+}
+
 // ── Asset list ────────────────────────────────────────────────────────────────
 
 const TYPE_META = {
-  image: { label: "IMG", color: "#0A84FF" },
-  script: { label: "JS", color: "#FF9F0A" },
-  css: { label: "CSS", color: "#BF5AF2" },
-  font: { label: "TTF", color: "#34C759" },
-  media: { label: "VID", color: "#FF3B30" },
-  other: { label: "?", color: "#86868B" },
+  image:  { label: "IMG", color: "#0A84FF" },
+  script: { label: "JS",  color: "#FF9F0A" },
+  css:    { label: "CSS", color: "#BF5AF2" },
+  font:   { label: "TTF", color: "#34C759" },
+  media:  { label: "VID", color: "#FF3B30" },
+  other:  { label: "?",   color: "#86868B" },
 };
 
 function renderAssets(assets, filter) {
@@ -265,8 +301,9 @@ function renderAssets(assets, filter) {
 
   const { formatBytes, formatCO2, statusColor } = window.EcoUtil;
 
-  const filtered =
-    filter === "all" ? assets : assets.filter((a) => a.status === filter);
+  const filtered = filter === "all"
+    ? assets
+    : assets.filter((a) => a.status === filter);
 
   if (filtered.length === 0) {
     list.innerHTML = `<div style="font-size:13px;color:var(--text-sub);text-align:center;padding:24px 0;">
@@ -275,13 +312,12 @@ function renderAssets(assets, filter) {
     return;
   }
 
-  list.innerHTML = filtered
-    .map((a) => {
-      const col = statusColor(a.status);
-      const meta = TYPE_META[a.asset_type] || TYPE_META.other;
-      const id = `asset-${encodeURIComponent(a.url).slice(0, 30)}`;
+  list.innerHTML = filtered.map((a) => {
+    const col  = statusColor(a.status);
+    const meta = TYPE_META[a.asset_type] || TYPE_META.other;
+    const id   = `asset-${encodeURIComponent(a.url).slice(0, 30)}`;
 
-      return `
+    return `
     <div class="asset-row" id="${id}" onclick="toggleAsset('${id}')">
       <div class="asset-row-main">
         <span class="type-badge" style="color:${meta.color};background:${meta.color}18;border-color:${meta.color}35;">
@@ -308,8 +344,7 @@ function renderAssets(assets, filter) {
         <span class="tip-text">${escHtml(a.optimization_tip || "No suggestion available.")}</span>
       </div>
     </div>`;
-    })
-    .join("");
+  }).join("");
 }
 
 window.toggleAsset = function (id) {
@@ -319,9 +354,9 @@ window.toggleAsset = function (id) {
 // ── Filter tabs ────────────────────────────────────────────────────────────────
 
 const TAB_CONFIG = [
-  { key: "all", label: "All", cls: "active-all" },
-  { key: "red", label: "Critical", cls: "active-red" },
-  { key: "amber", label: "Moderate", cls: "active-amber" },
+  { key: "all",   label: "All",       cls: "active-all"   },
+  { key: "red",   label: "Critical",  cls: "active-red"   },
+  { key: "amber", label: "Moderate",  cls: "active-amber" },
   { key: "green", label: "Optimised", cls: "active-green" },
 ];
 
@@ -337,7 +372,7 @@ function setupFilterTabs(assets) {
       data-cls="${cls}"
       onclick="applyFilter('${key}', this, event)">
       ${label}
-    </button>`,
+    </button>`
   ).join("");
 }
 
@@ -382,10 +417,9 @@ function renderRecentAudits(audits) {
     return;
   }
 
-  grid.innerHTML = audits
-    .map((a) => {
-      const col = gradeColor(a.grade);
-      return `
+  grid.innerHTML = audits.map((a) => {
+    const col = gradeColor(a.grade);
+    return `
     <div class="recent-row" onclick="loadAuditById(${a.audit_id})">
       <div class="recent-url" title="${escHtml(a.url)}">${escHtml(a.url)}</div>
       <div class="recent-co2 sub">${formatCO2(a.total_co2)} CO₂</div>
@@ -396,8 +430,7 @@ function renderRecentAudits(audits) {
       </div>
       <div class="recent-date sub">${formatDate(a.created_at)}</div>
     </div>`;
-    })
-    .join("");
+  }).join("");
 
   recentSection?.classList.remove("hidden");
 }
@@ -431,9 +464,7 @@ function setEl(id, attr, value) {
   else el.setAttribute(attr, value);
 }
 /** Set element text content by id */
-function setTxt(id, text) {
-  setEl(id, "textContent", text);
-}
+function setTxt(id, text) { setEl(id, "textContent", text); }
 
 /** Shake the search bar to indicate invalid input */
 function shakeSearchBar() {
