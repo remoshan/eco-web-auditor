@@ -70,6 +70,8 @@ class MLPrediction(BaseModel):
     r2_score: Optional[float] = None
     difference_pct: Optional[float] = None
 
+    model_config = {"protected_namespaces": ()}   # ← add this line
+
 
 # ── Primary response ──────────────────────────────────────────────────────────
 
