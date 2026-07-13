@@ -1,0 +1,8 @@
+{
+  "model_name": "Linear Regression",
+  "r2_score": 0.9964088295494375,
+  "mae": 0.010482145868738958,
+  "rmse": 0.037751539604484546,
+  "n_samples": 63,
+  "n_features": 24
+}
