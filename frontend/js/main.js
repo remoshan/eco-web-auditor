@@ -2,8 +2,9 @@
  * js/main.js
  * ──────────
  * Shared utilities used by both pages:
- *   - API base URL configuration
+ *   - API base URL
  *   - Active nav link highlighting
+ *   - Light / Dark theme toggle (persisted in localStorage)
  *   - Formatting helpers
  */
 
@@ -11,8 +12,40 @@
 // Change this if you run the backend on a different port or host.
 window.API_BASE = "http://localhost:8000";
 
+// ── Theme Management ──────────────────────────────────────────────────────────
+
+/**
+ * Apply a theme to the document and persist the preference.
+ * @param {"dark"|"light"} theme
+ */
+function applyTheme(theme) {
+  const html = document.documentElement;
+  if (theme === "light") {
+    html.setAttribute("data-theme", "light");
+  } else {
+    html.removeAttribute("data-theme");
+  }
+  localStorage.setItem("ecoweb-theme", theme);
+}
+
+/**
+ * Toggle between light and dark and update all toggle buttons on the page.
+ */
+function toggleTheme() {
+  const current = localStorage.getItem("ecoweb-theme") || "dark";
+  applyTheme(current === "dark" ? "light" : "dark");
+}
+
+// Expose globally so onclick attributes in HTML can call it
+window.toggleTheme = toggleTheme;
+
 // ── Active nav link ───────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
+  // 1. Restore saved theme on every page load (before paint to avoid flash)
+  const saved = localStorage.getItem("ecoweb-theme") || "dark";
+  applyTheme(saved);
+
+  // 2. Highlight the correct nav link for the current page
   const currentPage = window.location.pathname.split("/").pop() || "index.html";
   document.querySelectorAll(".nav-links a").forEach((link) => {
     const href = link.getAttribute("href");
@@ -33,8 +66,7 @@ function formatBytes(bytes) {
   if (bytes === 0) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
@@ -55,9 +87,7 @@ function formatCO2(grams) {
  * @returns {string}
  */
 function statusColor(status) {
-  return (
-    { green: "#34C759", amber: "#FF9F0A", red: "#FF3B30" }[status] ?? "#86868B"
-  );
+  return { green: "#34C759", amber: "#FF9F0A", red: "#FF3B30" }[status] ?? "#86868B";
 }
 
 /**
@@ -90,10 +120,4 @@ function formatDate(iso) {
 }
 
 // ── Expose to other scripts ───────────────────────────────────────────────────
-window.EcoUtil = {
-  formatBytes,
-  formatCO2,
-  statusColor,
-  gradeColor,
-  formatDate,
-};
+window.EcoUtil = { formatBytes, formatCO2, statusColor, gradeColor, formatDate };

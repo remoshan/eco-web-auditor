@@ -17,35 +17,24 @@
   const _instances = {};
 
   // Colour palette matching the CSS custom properties
-  const PALETTE = [
-    "#0A84FF",
-    "#FF9F0A",
-    "#BF5AF2",
-    "#34C759",
-    "#FF3B30",
-    "#30D158",
-  ];
+  const PALETTE = ["#0A84FF", "#FF9F0A", "#BF5AF2", "#34C759", "#FF3B30", "#30D158"];
 
-  // Shared Chart.js tooltip style
-  const TOOLTIP_STYLE = {
-    backgroundColor: "rgba(10, 14, 10, 0.94)",
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    borderWidth: 1,
-    titleColor: "#F5F5F7",
-    bodyColor: "#86868B",
-    cornerRadius: 10,
-    padding: 10,
-    titleFont: {
-      family: "-apple-system, BlinkMacSystemFont, sans-serif",
-      size: 12,
-      weight: "600",
-    },
-    bodyFont: {
-      family: "-apple-system, BlinkMacSystemFont, sans-serif",
-      size: 11,
-    },
-    displayColors: false,
-  };
+  // Shared Chart.js tooltip style — reads CSS variables so it adapts to theme
+  function getTooltipStyle() {
+    const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+    return {
+      backgroundColor: isDark ? "rgba(10, 14, 10, 0.94)" : "rgba(255, 255, 255, 0.96)",
+      borderColor:     isDark ? "rgba(255,255,255,0.08)"  : "rgba(0,0,0,0.10)",
+      borderWidth:     1,
+      titleColor:      isDark ? "#F5F5F7" : "#1a1a1a",
+      bodyColor:       isDark ? "#86868B" : "#555a55",
+      cornerRadius:    10,
+      padding:         10,
+      titleFont: { family: "-apple-system, BlinkMacSystemFont, sans-serif", size: 12, weight: "600" },
+      bodyFont:  { family: "-apple-system, BlinkMacSystemFont, sans-serif", size: 11 },
+      displayColors: false,
+    };
+  }
 
   /**
    * Destroy a named chart instance if it exists.
@@ -75,7 +64,7 @@
     if (!canvas) return;
 
     const labels = categories.map((c) => c.name);
-    const data = categories.map((c) => parseFloat(c.percentage.toFixed(1)));
+    const data   = categories.map((c) => parseFloat(c.percentage.toFixed(1)));
     const colors = categories.map((_, i) => PALETTE[i % PALETTE.length]);
 
     _instances["pie"] = new Chart(canvas, {
@@ -97,7 +86,7 @@
         plugins: {
           legend: { display: false },
           tooltip: {
-            ...TOOLTIP_STYLE,
+            ...getTooltipStyle(),
             callbacks: {
               label: (ctx) => ` ${ctx.parsed}% of total CO₂`,
             },
@@ -125,7 +114,7 @@
           <div class="legend-dot" style="background:${colors[i]};box-shadow:0 0 5px ${colors[i]}80"></div>
           <span class="legend-name">${c.name}</span>
           <span class="legend-val">${c.percentage}%</span>
-        </div>`,
+        </div>`
       )
       .join("");
   }
@@ -142,7 +131,7 @@
     if (!canvas) return;
 
     const labels = categories.map((c) => c.name);
-    const data = categories.map((c) => parseFloat(c.total_co2.toFixed(4)));
+    const data   = categories.map((c) => parseFloat(c.total_co2.toFixed(4)));
     const colors = categories.map((_, i) => PALETTE[i % PALETTE.length]);
 
     _instances["bar"] = new Chart(canvas, {
@@ -165,7 +154,7 @@
         plugins: {
           legend: { display: false },
           tooltip: {
-            ...TOOLTIP_STYLE,
+            ...getTooltipStyle(),
             callbacks: {
               label: (ctx) => ` ${ctx.parsed.y}g CO₂`,
             },
@@ -173,25 +162,19 @@
         },
         scales: {
           x: {
-            grid: { display: false },
+            grid:   { display: false },
             border: { display: false },
             ticks: {
-              color: "#86868B",
-              font: {
-                family: "-apple-system, BlinkMacSystemFont, sans-serif",
-                size: 10,
-              },
+              color: document.documentElement.getAttribute("data-theme") === "light" ? "#555a55" : "#86868B",
+              font: { family: "-apple-system, BlinkMacSystemFont, sans-serif", size: 10 },
             },
           },
           y: {
-            grid: { color: "rgba(255,255,255,0.04)" },
+            grid:   { color: document.documentElement.getAttribute("data-theme") === "light" ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.04)" },
             border: { display: false },
             ticks: {
-              color: "#86868B",
-              font: {
-                family: "-apple-system, BlinkMacSystemFont, sans-serif",
-                size: 10,
-              },
+              color: document.documentElement.getAttribute("data-theme") === "light" ? "#555a55" : "#86868B",
+              font: { family: "-apple-system, BlinkMacSystemFont, sans-serif", size: 10 },
               callback: (v) => `${v}g`,
             },
           },
