@@ -10,7 +10,7 @@
 
 // ── API Configuration ─────────────────────────────────────────────────────────
 // Change this if you run the backend on a different port or host.
-window.API_BASE = "http://localhost:8000";
+window.API_BASE = "https://ecoweb-auditor-api.onrender.com/";
 
 // ── Theme Management ──────────────────────────────────────────────────────────
 
