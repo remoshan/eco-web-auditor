@@ -96,7 +96,8 @@ def explore_data(df: pd.DataFrame) -> None:
     plt.figure(figsize=(8, 5))
     grade_order = ["A+", "A", "B+", "B", "C", "D", "F"]
     grade_counts = df["grade"].value_counts().reindex(grade_order).fillna(0)
-    sns.barplot(x=grade_counts.index, y=grade_counts.values, palette="RdYlGn_r")
+    sns.barplot(x=grade_counts.index, y=grade_counts.values,
+            hue=grade_counts.index, palette="RdYlGn_r", legend=False)
     plt.title("Sustainability Grade Distribution")
     plt.xlabel("Grade")
     plt.ylabel("Number of websites")
