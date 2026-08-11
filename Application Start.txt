@@ -1,0 +1,4 @@
+Frontend - python -m http.server 5500
+
+Backend - venv\Scripts\activate
+          uvicorn main:app --reload --port 8000
