@@ -336,6 +336,7 @@ button {
   margin-right: 12px;
   opacity: 0.35;
   flex-shrink: 0;
+  color: var(--text-sub);
 }
 
 .search-wrap input {
@@ -587,6 +588,18 @@ button {
   flex-direction: column;
 }
 
+.gauge-track {
+  stroke: var(--border);
+}
+
+#gauge-grade {
+  fill: var(--text);
+}
+
+#gauge-score {
+  fill: var(--text-sub);
+}
+
 .gauge-label {
   font-size: 10px;
   font-weight: 700;
@@ -827,6 +840,7 @@ button {
   opacity: 0.3;
   transition: transform 0.2s;
   flex-shrink: 0;
+  color: var(--text);
 }
 
 .asset-row.open .chevron {

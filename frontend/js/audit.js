@@ -82,7 +82,7 @@ function showHero() {
   resultsSection?.classList.add("hidden");
 }
 
-function showLoading(url) {
+function showLoading(url, simple = false) {
   heroSection?.classList.add("hidden");
   loadingSection?.classList.remove("hidden");
   resultsSection?.classList.add("hidden");
@@ -90,7 +90,15 @@ function showLoading(url) {
   const loadingUrl = document.getElementById("loading-url");
   if (loadingUrl) loadingUrl.textContent = url;
 
-  buildLoadingSteps();
+  const label = document.getElementById("loading-label");
+  if (label) label.textContent = simple ? "Loading" : "Scanning";
+
+  const stepsContainer = document.getElementById("loading-steps");
+  if (simple) {
+    if (stepsContainer) stepsContainer.innerHTML = "";
+  } else {
+    buildLoadingSteps();
+  }
 }
 
 function showResults(data) {
@@ -273,7 +281,7 @@ function renderAssets(assets, filter) {
           <span class="asset-co2" style="color:${col};">${formatCO2(a.co2_grams)} CO₂</span>
           <div class="status-dot" style="background:${col};box-shadow:0 0 5px ${col}90;"></div>
           <svg class="chevron" width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <path d="M2 3.5L5 6.5L8 3.5" stroke="#F5F5F7" stroke-width="1.4"
+            <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.4"
               stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
@@ -368,17 +376,14 @@ function renderRecentAudits(audits) {
 }
 
 window.loadAuditById = async function (id) {
-  showLoading("Loading saved audit…");
-  startLoadingAnimation();
+  showLoading("Loading saved audit…", true);
   try {
     const res = await fetch(`${window.API_BASE}/api/audit/${id}`);
     if (!res.ok) throw new Error("Could not load audit.");
     const data = await res.json();
     currentAuditData = data;
-    stopLoadingAnimation();
     showResults(data);
   } catch (err) {
-    stopLoadingAnimation();
     showError(err.message);
     showHero();
   }

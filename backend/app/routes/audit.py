@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
+from app.database import get_db, purge_old_audits
 from app.models.audit import Audit, AuditAsset
 from app.schemas.audit import (
     AuditRequest,
@@ -94,6 +94,8 @@ async def run_audit(
 ):
     url = str(request.url)
     logger.info("Audit requested for: %s", url)
+
+    await purge_old_audits()
 
     try:
         scrape_result = await scrape_page(url)
