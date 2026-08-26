@@ -1,11 +1,7 @@
-# EcoWeb Auditor 🌿
+# EcoWeb Auditor
 
-> A tool for estimating and visualising the carbon footprint of web pages  
+> A tool for estimating and visualising the carbon footprint of web pages
 > via element-level analysis — using the Sustainable Web Design (SWD) model.
-
-**BSc (Hons) Software Engineering · Final Year Project**  
-Wilson Francis Remoshan (2541691) · University of Bedfordshire · 2026  
-Supervisor: Ms. Rameesha Kankanamge
 
 ---
 
@@ -17,7 +13,7 @@ ecoweb-auditor/
 ├── backend/                     # Python / FastAPI API server
 │   ├── main.py                  # App entry point – run this
 │   ├── requirements.txt         # pip dependencies
-│   ├── .env.example             # Copy to .env and fill in your DB details
+│   ├── .env                     # Your local DB credentials (not committed)
 │   └── app/
 │       ├── config.py            # Pydantic Settings (reads from .env)
 │       ├── database.py          # Async SQLAlchemy engine + session
@@ -33,13 +29,13 @@ ecoweb-auditor/
 │
 └── frontend/                    # Plain HTML / CSS / JS (no build step)
     ├── index.html               # Home page – scanner & results dashboard
-    ├── about.html               # About page – carbon facts & SWD model
+    ├── about.html                # About page – carbon facts & SWD model
     ├── css/
     │   └── main.css             # Full stylesheet (dark green theme)
     └── js/
-        ├── main.js              # Shared utilities & nav highlighting
-        ├── charts.js            # Chart.js pie & bar chart wrappers
-        └── audit.js             # Audit form, loading, results rendering
+        ├── main.js               # Shared utilities & nav highlighting
+        ├── charts.js             # Chart.js pie & bar chart wrappers
+        └── audit.js              # Audit form, loading, results rendering
 ```
 
 ---
@@ -49,36 +45,15 @@ ecoweb-auditor/
 | Tool | Version | Download |
 |------|---------|----------|
 | Python | 3.11 or higher | https://python.org |
-| PostgreSQL | 14 or higher | https://postgresql.org |
+| PostgreSQL | 14 or higher (local) | https://postgresql.org |
 | pip | latest | bundled with Python |
 | A modern browser | Chrome, Firefox, Edge | — |
 
 ---
 
-## 1 · Set Up PostgreSQL
+## 1 · Set Up a Database
 
-### Install PostgreSQL (if not already installed)
-
-**Windows:**  
-Download the installer from https://www.postgresql.org/download/windows/  
-During setup, note the password you set for the `postgres` user.
-
-**macOS (Homebrew):**
-```bash
-brew install postgresql@16
-brew services start postgresql@16
-```
-
-**Ubuntu / Debian:**
-```bash
-sudo apt update
-sudo apt install postgresql postgresql-contrib
-sudo systemctl start postgresql
-```
-
-### Create the database
-
-Open a terminal / psql shell:
+**Option A — Local PostgreSQL**
 
 ```bash
 # Connect as the postgres superuser
@@ -93,21 +68,10 @@ CREATE DATABASE ecoweb_db;
 
 ## 2 · Configure the Backend
 
-```bash
-# Navigate to the backend folder
-cd ecoweb-auditor/backend
-
-# Copy the example environment file
-cp .env.example .env
-```
-
-Open `.env` in any text editor and set your database credentials:
+Create a `.env` file inside `ecoweb-auditor/backend/` with your database credentials:
 
 ```env
-# Replace 'password' with your actual PostgreSQL password
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/ecoweb_db
-
-# Leave the rest as-is for local development
 ALLOWED_ORIGINS=http://localhost:5500,http://127.0.0.1:5500,http://localhost:3000,null
 SCRAPER_TIMEOUT=30
 MAX_ASSETS_PER_PAGE=80
@@ -146,13 +110,13 @@ uvicorn main:app --reload --port 8000
 You should see output like:
 
 ```
-INFO     EcoWeb Auditor – starting up
-INFO     Database tables initialised successfully.
+INFO     EcoWeb Auditor starting up
+INFO     Database ready
 INFO     Application startup complete.
 INFO     Uvicorn running on http://127.0.0.1:8000
 ```
 
-> **Tip:** Keep this terminal window open. The `--reload` flag auto-restarts  
+> **Tip:** Keep this terminal window open. The `--reload` flag auto-restarts
 > the server when you edit Python files.
 
 ### Verify the API is running
@@ -165,7 +129,9 @@ Open your browser and visit:
 
 ## 5 · Open the Frontend
 
-The frontend is plain HTML — no build step required.
+The frontend is plain HTML — no build step required. Open
+`frontend/js/main.js` and set `API_BASE` to `http://localhost:8000` so it
+talks to your local backend.
 
 **Option A · VS Code Live Server (recommended)**
 1. Open the `ecoweb-auditor/frontend/` folder in VS Code
@@ -204,6 +170,7 @@ render in some browsers over `file://`. Use Live Server for the best experience.
 | `POST` | `/api/audit` | Submit a URL for auditing |
 | `GET`  | `/api/audits/recent` | List recent audits (default: 10) |
 | `GET`  | `/api/audit/{id}` | Retrieve a specific audit by ID |
+| `GET`  | `/api/model-info` | ML model status and evaluation metrics |
 | `GET`  | `/health` | Health check |
 | `GET`  | `/docs` | Swagger UI |
 
@@ -233,6 +200,9 @@ Each individual asset's CO₂ is calculated separately using the same formula,
 enabling the element-level breakdown that differentiates this tool from
 aggregate calculators like WebsiteCarbon.com.
 
+An independently trained ML model (`backend/ml/`) cross-validates the SWD
+formula's output — see the `ml_prediction` field in the audit response.
+
 ### Grade thresholds
 
 | Grade | CO₂ per visit |
@@ -247,15 +217,26 @@ aggregate calculators like WebsiteCarbon.com.
 
 ---
 
+## Known Limitations
+
+- **Static parsing only.** The scraper does not execute JavaScript, so
+  dynamically-injected assets are not captured.
+- **Certificate verification is enforced.** Sites with invalid or
+  misconfigured TLS certificates will fail to audit rather than being
+  fetched insecurely.
+
+---
+
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|---------|
 | `Connection refused` on audit | Make sure `uvicorn` is running on port 8000 |
-| `asyncpg` auth error | Double-check `DATABASE_URL` password in `.env` |
+| `asyncpg` auth error | Double-check `DATABASE_URL` in `.env` |
 | CORS error in browser | Ensure your frontend URL is in `ALLOWED_ORIGINS` |
 | `ModuleNotFoundError` | Run `pip install -r requirements.txt` inside your venv |
 | No assets found | Some sites block scrapers; try a different URL |
+| Audit fails with a TLS/certificate error | The target site has an invalid certificate — see Known Limitations above |
 | Glassmorphism not showing | Open via Live Server, not `file://` |
 
 ---
@@ -269,5 +250,3 @@ aggregate calculators like WebsiteCarbon.com.
 - PostgreSQL Documentation https://www.postgresql.org/docs/
 
 ---
-
-*EcoWeb Auditor is a BSc final year project and is intended for educational and research use.*

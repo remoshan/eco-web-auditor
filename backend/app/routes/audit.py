@@ -1,13 +1,4 @@
-"""
-app/routes/audit.py
-───────────────────
-FastAPI router defining all /api/* endpoints.
-
-Endpoints:
-  POST /api/audit            – Submit a URL for auditing
-  GET  /api/audits/recent    – List recent audit results
-  GET  /api/audit/{id}       – Retrieve a specific audit by ID
-"""
+"""FastAPI router defining all /api/* endpoints."""
 
 import logging
 from typing import List
@@ -42,13 +33,8 @@ router = APIRouter(prefix="/api", tags=["Audit"])
 
 
 def build_ml_features(html_size: int, assets: list[dict]) -> dict:
-    """
-    Convert a completed audit's asset list into the exact feature
-    dictionary expected by the trained ML model (see
-    scripts/train_model.py :: FEATURE_COLUMNS and extract_features()).
-
-    This MUST mirror the feature engineering used during training,
-    otherwise predictions will be meaningless.
+    """Must produce the same keys as ml/feature_columns.json, or ML
+    predictions become meaningless.
     """
     images  = [a for a in assets if a["asset_type"] == "image"]
     scripts = [a for a in assets if a["asset_type"] == "script"]
@@ -101,38 +87,26 @@ def build_ml_features(html_size: int, assets: list[dict]) -> dict:
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# POST /api/audit
-# ─────────────────────────────────────────────────────────────────────────────
-
 @router.post("/audit", response_model=AuditResponse, summary="Run a carbon audit")
 async def run_audit(
     request: AuditRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Accept a URL, scrape its assets, compute per-element CO2 using the SWD
-    model, persist the results, and return the full audit report.
-    """
     url = str(request.url)
     logger.info("Audit requested for: %s", url)
 
-    # ── 1. Scrape ─────────────────────────────────────────────────────────────
     try:
         scrape_result = await scrape_page(url)
     except ValueError as exc:
-        # Friendly error the frontend can display directly
         raise HTTPException(status_code=422, detail=str(exc))
-    except Exception as exc:
+    except Exception:
         logger.exception("Unexpected scrape failure for %s", url)
         raise HTTPException(
             status_code=500,
             detail="An unexpected error occurred while scraping the page.",
         )
 
-    # ── 2. Calculate per-asset carbon ─────────────────────────────────────────
     assets_data: list[dict] = []
-    # Start total from the HTML document itself
     total_bytes: int = scrape_result["html_size"]
 
     for raw in scrape_result["assets"]:
@@ -157,17 +131,14 @@ async def run_audit(
             }
         )
 
-    # Sort assets from most to least carbon-intensive
     assets_data.sort(key=lambda a: a["co2_grams"], reverse=True)
 
-    # ── 3. Page-level metrics ─────────────────────────────────────────────────
     total_co2 = calculate_co2_grams(total_bytes)
     grade, score = get_grade_and_score(total_co2)
     comparison = get_real_world_comparison(total_co2)
     annual = calculate_annual_metrics(total_co2)
     page_weight_mb = round(total_bytes / (1024 * 1024), 2)
 
-    # ── 4. Category breakdown (for charts) ────────────────────────────────────
     category_map: dict[str, dict] = {}
     for asset in assets_data:
         atype = asset["asset_type"]
@@ -193,11 +164,8 @@ async def run_audit(
         )
     ]
 
-    # ── 4b. ML cross-validation (research component) ─────────────────────────
-    # Build the same feature set used during model training and ask the
-    # trained model for an independent CO2 estimate. This is purely
-    # informational — the SWD formula remains the authoritative figure
-    # stored in the database and used for the grade.
+    # Independent ML estimate, purely informational - the SWD figure above
+    # remains authoritative for the grade and the stored record.
     ml_prediction: MLPrediction | None = None
     if predictor.is_available():
         ml_features = build_ml_features(html_size=scrape_result["html_size"], assets=assets_data)
@@ -216,7 +184,6 @@ async def run_audit(
                 difference_pct=diff_pct,
             )
 
-    # ── 5. Persist to database ────────────────────────────────────────────────
     audit_record = Audit(
         url=url,
         total_bytes=total_bytes,
@@ -228,7 +195,7 @@ async def run_audit(
         request_count=len(assets_data),
     )
     db.add(audit_record)
-    await db.flush()  # Generates the audit ID
+    await db.flush()
 
     for asset in assets_data:
         db.add(
@@ -251,7 +218,6 @@ async def run_audit(
         audit_record.id, grade, total_co2, len(assets_data),
     )
 
-    # ── 6. Build and return the response ─────────────────────────────────────
     return AuditResponse(
         audit_id=audit_record.id,
         url=url,
@@ -271,17 +237,8 @@ async def run_audit(
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# GET /api/model-info
-# ─────────────────────────────────────────────────────────────────────────────
-
 @router.get("/model-info", summary="Get ML model status and metrics")
 async def get_model_info():
-    """
-    Return metadata about the trained ML model used for cross-validating
-    SWD predictions. Returns available=False if no model has been trained
-    yet (run scripts/collect_dataset.py then scripts/train_model.py).
-    """
     info = predictor.get_model_info()
     if not info:
         return {
@@ -294,10 +251,6 @@ async def get_model_info():
     return {"available": True, **info}
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# GET /api/audits/recent
-# ─────────────────────────────────────────────────────────────────────────────
-
 @router.get(
     "/audits/recent",
     response_model=List[RecentAuditItem],
@@ -307,7 +260,6 @@ async def get_recent_audits(
     limit: int = Query(default=10, ge=1, le=50, description="Max results to return"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return a summary list of the most recently completed audits."""
     result = await db.execute(
         select(Audit).order_by(desc(Audit.created_at)).limit(limit)
     )
@@ -327,24 +279,18 @@ async def get_recent_audits(
     ]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# GET /api/audit/{audit_id}
-# ─────────────────────────────────────────────────────────────────────────────
-
 @router.get(
     "/audit/{audit_id}",
     response_model=AuditResponse,
     summary="Get audit by ID",
 )
 async def get_audit_by_id(audit_id: int, db: AsyncSession = Depends(get_db)):
-    """Retrieve a previously stored audit report by its database ID."""
     audit_result = await db.execute(select(Audit).where(Audit.id == audit_id))
     audit = audit_result.scalar_one_or_none()
 
     if not audit:
         raise HTTPException(status_code=404, detail=f"Audit {audit_id} not found.")
 
-    # Assets are eagerly loaded via the `lazy="selectin"` relationship setting
     total_co2 = audit.total_co2
     annual = calculate_annual_metrics(total_co2)
 

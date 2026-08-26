@@ -1,19 +1,17 @@
 # Environment variables
 .env
 
-# Virtual environments
+# Python
+__pycache__/
+*.py[cod]
 venv/
 .venv/
 env/
+*.egg-info/
 
-# Python cache
-__pycache__/
-*.py[cod]
-
-# Build files
+# Build output
 build/
 dist/
-*.egg-info/
 
 # IDE settings
 .vscode/

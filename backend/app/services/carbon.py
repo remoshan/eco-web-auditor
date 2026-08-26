@@ -1,30 +1,18 @@
-"""
-app/services/carbon.py
-──────────────────────
-Implements the Sustainable Web Design (SWD) carbon calculation model.
+"""Implements the Sustainable Web Design (SWD) carbon calculation model.
 
-Reference:
-  Greenwood, T. (2021) Sustainable Web Design. A Book Apart.
-  https://sustainablewebdesign.org/
+Reference: Greenwood, T. (2021) Sustainable Web Design. A Book Apart.
+https://sustainablewebdesign.org/
 
-The SWD formula:
-  CO2 (g) = (data_bytes / 1,000,000,000) × 0.81 kWh/GB × 442 gCO2/kWh
-
-Where:
-  0.81 kWh/GB  = estimated energy consumed to transfer 1 GB of data
-  442 gCO2/kWh = global average carbon intensity of electricity (2023)
+CO2 (g) = (data_bytes / 1,000,000,000) × 0.81 kWh/GB × 442 gCO2/kWh
 """
 
 import math
 from typing import Tuple
 
-# ── SWD Model Constants ───────────────────────────────────────────────────────
 ENERGY_PER_GB: float = 0.81       # kWh per gigabyte transferred
 CARBON_INTENSITY: float = 442.0   # gCO2 per kWh (global grid average, 2023)
 
-# ── Grade Thresholds ──────────────────────────────────────────────────────────
-# Based on the WebsiteCarbon.com grading methodology.
-# Ordered from best to worst; first match wins.
+# WebsiteCarbon.com grading methodology. Ordered best to worst; first match wins.
 GRADE_THRESHOLDS: list[tuple[float, str, int]] = [
     (0.095, "A+", 96),
     (0.184, "A",  88),
@@ -35,8 +23,6 @@ GRADE_THRESHOLDS: list[tuple[float, str, int]] = [
     (math.inf, "F", 10),
 ]
 
-# ── Asset Status Thresholds (in bytes) ────────────────────────────────────────
-# Determines green/amber/red status badge for each individual asset.
 ASSET_STATUS_THRESHOLDS: dict[str, dict[str, int]] = {
     "image":  {"green": 50_000,   "amber": 300_000},
     "script": {"green": 30_000,   "amber": 150_000},
@@ -46,7 +32,6 @@ ASSET_STATUS_THRESHOLDS: dict[str, dict[str, int]] = {
     "other":  {"green": 30_000,   "amber": 150_000},
 }
 
-# ── Optimisation Tips ─────────────────────────────────────────────────────────
 OPTIMIZATION_TIPS: dict[str, dict[str, str]] = {
     "image": {
         "red": (
@@ -131,21 +116,7 @@ OPTIMIZATION_TIPS: dict[str, dict[str, str]] = {
 }
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
-
 def calculate_co2_grams(size_bytes: int) -> float:
-    """
-    Calculate CO2 emissions (in grams) from a data transfer size.
-
-    Uses the Sustainable Web Design model:
-        CO2 = (bytes ÷ 10⁹) × 0.81 kWh/GB × 442 gCO2/kWh
-
-    Args:
-        size_bytes: Transfer size in bytes (must be >= 0)
-
-    Returns:
-        Estimated CO2 in grams, rounded to 6 decimal places.
-    """
     if size_bytes <= 0:
         return 0.0
     gigabytes = size_bytes / 1_000_000_000
@@ -155,16 +126,6 @@ def calculate_co2_grams(size_bytes: int) -> float:
 
 
 def get_grade_and_score(co2_grams: float) -> Tuple[str, int]:
-    """
-    Map a per-visit CO2 value to a sustainability grade (A+ – F) and
-    a numeric score (0–100).
-
-    Args:
-        co2_grams: Total CO2 per page visit in grams
-
-    Returns:
-        Tuple of (grade_string, score_int)
-    """
     for threshold, grade, score in GRADE_THRESHOLDS:
         if co2_grams <= threshold:
             return grade, score
@@ -172,17 +133,6 @@ def get_grade_and_score(co2_grams: float) -> Tuple[str, int]:
 
 
 def get_asset_status(asset_type: str, size_bytes: int) -> str:
-    """
-    Assign a traffic-light status (green/amber/red) to an individual asset
-    based on its type and file size.
-
-    Args:
-        asset_type: One of image/script/css/font/media/other
-        size_bytes: Asset size in bytes
-
-    Returns:
-        "green" | "amber" | "red"
-    """
     thresholds = ASSET_STATUS_THRESHOLDS.get(
         asset_type, ASSET_STATUS_THRESHOLDS["other"]
     )
@@ -194,19 +144,12 @@ def get_asset_status(asset_type: str, size_bytes: int) -> str:
 
 
 def get_optimization_tip(asset_type: str, status: str) -> str:
-    """
-    Return an actionable optimisation suggestion for a given asset
-    type and status.
-    """
     tips = OPTIMIZATION_TIPS.get(asset_type, OPTIMIZATION_TIPS["other"])
     return tips.get(status, tips["green"])
 
 
 def get_real_world_comparison(co2_grams: float) -> str:
-    """
-    Convert CO2 grams to an intuitive real-world comparison.
-    Assumes UK average petrol car: ~150 gCO2/km.
-    """
+    """Assumes a UK average petrol car: ~150 gCO2/km."""
     metres_driven = (co2_grams / 150.0) * 1000.0
     if metres_driven >= 1000:
         return f"Equivalent to driving {metres_driven / 1000:.2f} km in a petrol car"
@@ -216,20 +159,9 @@ def get_real_world_comparison(co2_grams: float) -> str:
 
 
 def calculate_annual_metrics(co2_per_visit: float, monthly_visits: int = 10_000) -> dict:
-    """
-    Project annual environmental impact based on estimated monthly traffic.
-
-    Args:
-        co2_per_visit: Grams of CO2 per single page visit
-        monthly_visits: Estimated monthly unique visits (default: 10,000)
-
-    Returns:
-        dict with annual_grams, annual_kg, and trees_to_offset
-    """
     annual_grams = co2_per_visit * monthly_visits * 12
     annual_kg = annual_grams / 1000
-    # A mature tree absorbs approximately 21 kg CO2 per year
-    trees_needed = annual_kg / 21.0
+    trees_needed = annual_kg / 21.0  # a mature tree absorbs ~21 kg CO2/year
 
     return {
         "annual_grams": round(annual_grams, 2),

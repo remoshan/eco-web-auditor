@@ -1,10 +1,4 @@
-"""
-app/schemas/audit.py
-────────────────────
-Pydantic models used for:
-  - Request body validation  (what the client sends)
-  - Response serialisation   (what the API returns as JSON)
-"""
+"""Pydantic request/response schemas for the /api/audit endpoints."""
 
 from datetime import datetime
 from typing import List, Optional
@@ -12,11 +6,7 @@ from typing import List, Optional
 from pydantic import BaseModel, HttpUrl, Field, field_validator
 
 
-# ── Request ───────────────────────────────────────────────────────────────────
-
 class AuditRequest(BaseModel):
-    """Body for POST /api/audit"""
-
     url: HttpUrl = Field(
         ...,
         description="The full URL of the website to audit.",
@@ -32,16 +22,12 @@ class AuditRequest(BaseModel):
         return v
 
 
-# ── Nested response objects ───────────────────────────────────────────────────
-
 class AssetInfo(BaseModel):
-    """Carbon data for one individual page asset."""
-
     name: str
     url: str
     asset_type: str          # image | script | css | font | media | other
     size_bytes: int
-    size_kb: float           # Convenience field, pre-calculated
+    size_kb: float
     co2_grams: float
     status: str              # green | amber | red
     optimization_tip: Optional[str] = None
@@ -50,72 +36,49 @@ class AssetInfo(BaseModel):
 
 
 class CategoryBreakdown(BaseModel):
-    """Aggregated carbon data for an asset category (used for charts)."""
-
-    name: str                # Category label e.g. "Images"
+    name: str
     count: int
     total_bytes: int
     total_co2: float
-    percentage: float        # Share of overall page CO2 (0–100)
+    percentage: float
 
 
 class MLPrediction(BaseModel):
-    """
-    Independent ML-based CO2 prediction, used to cross-validate the
-    SWD formula's result (research validation component).
-    """
-
     predicted_co2_grams: float
     model_name: str
     r2_score: Optional[float] = None
     difference_pct: Optional[float] = None
 
-    model_config = {"protected_namespaces": ()}   # ← add this line
+    model_config = {"protected_namespaces": ()}
 
-
-# ── Primary response ──────────────────────────────────────────────────────────
 
 class AuditResponse(BaseModel):
-    """Full audit result returned by POST /api/audit."""
-
     audit_id: int
     url: str
 
-    # ── Grade ─────────────────────────────────────────────────────────────────
-    grade: str               # A+, A, B+, B, C, D, F
-    score: int               # 0–100
+    grade: str
+    score: int
 
-    # ── Carbon metrics ────────────────────────────────────────────────────────
     total_co2: float = Field(..., description="Grams of CO2 per page visit")
-    annual_co2_kg: float     # At 10,000 monthly visitors
+    annual_co2_kg: float
     annual_co2_grams: float
-    trees_to_offset: float   # Trees needed to offset annual emissions
+    trees_to_offset: float
 
-    # ── Page stats ────────────────────────────────────────────────────────────
     total_bytes: int
     page_weight_mb: float
     request_count: int
 
-    # ── Human-readable comparison ─────────────────────────────────────────────
-    comparison: str          # e.g. "Equivalent to driving 18 metres in a petrol car"
+    comparison: str
 
-    # ── Breakdown (for charts) ────────────────────────────────────────────────
     categories: List[CategoryBreakdown]
-
-    # ── Individual assets ─────────────────────────────────────────────────────
     assets: List[AssetInfo]
 
-    # ── ML cross-validation (research component) ─────────────────────────────
     ml_prediction: Optional[MLPrediction] = None
 
     model_config = {"from_attributes": True}
 
 
-# ── History list item ─────────────────────────────────────────────────────────
-
 class RecentAuditItem(BaseModel):
-    """Compact summary used in the recent-audits list."""
-
     audit_id: int
     url: str
     grade: str
