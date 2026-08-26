@@ -11,6 +11,7 @@ const auditBtn = document.getElementById("audit-btn");
 let currentAuditData = null;
 let activeFilter = "all";
 let loadTimer = null;
+let auditInFlight = false;
 
 const LOADING_STEPS = [
   "Resolving DNS and connecting…",
@@ -32,6 +33,8 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function handleAuditSubmit() {
+  if (auditInFlight) return; // ignore repeat Enter/clicks while one is already running
+
   const url = urlInput.value.trim();
 
   if (!url) {
@@ -44,6 +47,7 @@ async function handleAuditSubmit() {
 
   const targetUrl = urlInput.value.trim();
 
+  auditInFlight = true;
   showLoading(targetUrl);
   startLoadingAnimation();
 
@@ -57,6 +61,8 @@ async function handleAuditSubmit() {
     stopLoadingAnimation();
     showError(err.message || "An unexpected error occurred.");
     showHero();
+  } finally {
+    auditInFlight = false;
   }
 }
 
@@ -262,10 +268,10 @@ function renderAssets(assets, filter) {
     return;
   }
 
-  list.innerHTML = filtered.map((a) => {
+  list.innerHTML = filtered.map((a, i) => {
     const col = statusColor(a.status);
     const meta = TYPE_META[a.asset_type] || TYPE_META.other;
-    const id = `asset-${encodeURIComponent(a.url).slice(0, 30)}`;
+    const id = `asset-${i}`;
 
     return `
     <div class="asset-row" id="${id}" onclick="toggleAsset('${id}')">
@@ -336,13 +342,27 @@ window.applyFilter = function (filter, btn, event) {
   renderAssets(currentAuditData?.assets || [], filter);
 };
 
-async function loadRecentAudits() {
+const RECENT_AUDITS_MAX_ATTEMPTS = 6;
+const RECENT_AUDITS_RETRY_DELAY_MS = 5000;
+
+// Retries on failure since the deployed backend (Render free tier) can take
+// up to ~30s to wake from a cold start on the very first request.
+async function loadRecentAudits(attempt = 1) {
+  const grid = document.getElementById("recent-grid");
+  if (attempt === 1 && grid && !grid.children.length) {
+    grid.innerHTML = `<p style="font-size:13px;color:var(--text-sub);">Loading history…</p>`;
+  }
+
   try {
     const res = await fetch(`${window.API_BASE}/api/audits/recent?limit=8`);
-    if (!res.ok) return;
+    if (!res.ok) throw new Error(`Server error (${res.status})`);
     renderRecentAudits(await res.json());
-  } catch (_) {
-    // non-critical: history list just stays empty
+  } catch (err) {
+    if (attempt < RECENT_AUDITS_MAX_ATTEMPTS) {
+      setTimeout(() => loadRecentAudits(attempt + 1), RECENT_AUDITS_RETRY_DELAY_MS);
+    } else if (grid) {
+      grid.innerHTML = `<p style="font-size:13px;color:var(--text-sub);">Couldn't load audit history. Refresh to try again.</p>`;
+    }
   }
 }
 

@@ -1,5 +1,9 @@
-// Points at the deployed Render backend. Change for local development.
-window.API_BASE = "https://ecoweb-auditor-api.onrender.com";
+// Uses the local backend when the page itself is served from localhost;
+// otherwise points at the deployed Render backend.
+const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+window.API_BASE = isLocalHost
+  ? "http://localhost:8000"
+  : "https://ecoweb-auditor-api.onrender.com";
 
 function applyTheme(theme) {
   const html = document.documentElement;
