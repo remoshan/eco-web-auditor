@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.database import create_tables
+from app.database import create_tables, purge_old_audits
 from app.routes.audit import router as audit_router
 
 logging.basicConfig(
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("EcoWeb Auditor starting up")
     await create_tables()
+    await purge_old_audits()
     logger.info("Database ready")
     yield
     logger.info("EcoWeb Auditor shutting down")
