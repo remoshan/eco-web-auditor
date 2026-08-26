@@ -1,1 +1,0 @@
-# EcoWeb Auditor – app package

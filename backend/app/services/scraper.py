@@ -1,17 +1,6 @@
-"""
-app/services/scraper.py
-───────────────────────
-Async web scraper that:
-  1. Fetches the HTML of a target URL
-  2. Parses the DOM with BeautifulSoup4 to find all external assets
-  3. Fetches the byte size of each asset via concurrent HEAD requests
-  4. Returns a structured payload ready for carbon calculation
-
-Design notes:
-  - Uses httpx.AsyncClient for all HTTP operations
-  - A semaphore limits concurrency to avoid overwhelming target servers
-  - Falls back from HEAD → Range-GET → skip if sizes can't be determined
-  - Browser-like headers reduce the chance of being blocked
+"""Async web scraper: fetches a page's HTML, parses it with BeautifulSoup to
+find external assets, then sizes each one concurrently (HEAD -> Range-GET ->
+skip) before handing everything off to the carbon calculation.
 """
 
 import asyncio
@@ -26,9 +15,6 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# ── Constants ─────────────────────────────────────────────────────────────────
-
-# Mimic a real browser to avoid being blocked by anti-scraper measures
 BROWSER_HEADERS: dict[str, str] = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -44,23 +30,15 @@ BROWSER_HEADERS: dict[str, str] = {
     "Sec-Fetch-Mode": "navigate",
 }
 
-# Limit the number of simultaneous asset requests
 MAX_CONCURRENT_ASSET_REQUESTS: int = 12
 
 
-# ── URL helpers ───────────────────────────────────────────────────────────────
-
 def to_absolute_url(base_url: str, raw_url: str) -> Optional[str]:
-    """
-    Resolve a potentially relative URL to an absolute URL.
-    Returns None for data URIs, blob URLs, anchors, and javascript: links.
-    """
     if not raw_url:
         return None
 
     raw_url = raw_url.strip()
 
-    # Skip non-transferable URL schemes
     for scheme in ("data:", "blob:", "#", "javascript:", "mailto:", "tel:"):
         if raw_url.startswith(scheme):
             return None
@@ -68,30 +46,13 @@ def to_absolute_url(base_url: str, raw_url: str) -> Optional[str]:
     absolute = urljoin(base_url, raw_url)
     parsed = urlparse(absolute)
 
-    # Only accept standard web protocols
     if parsed.scheme not in ("http", "https"):
         return None
 
     return absolute
 
 
-# ── DOM parsing ───────────────────────────────────────────────────────────────
-
 def extract_assets_from_html(html: str, base_url: str) -> list[dict]:
-    """
-    Parse an HTML document and return a deduplicated list of external assets.
-
-    Each asset dict contains:
-        url        : Absolute URL of the asset
-        asset_type : image | script | css | font | other
-
-    Handles:
-        - <img src> and srcset
-        - <script src>
-        - <link rel="stylesheet">
-        - <link rel="preload" as="font|script|style|image">
-        - Favicon <link rel="icon">
-    """
     soup = BeautifulSoup(html, "lxml")
     assets: list[dict] = []
     seen_urls: set[str] = set()
@@ -102,21 +63,17 @@ def extract_assets_from_html(html: str, base_url: str) -> list[dict]:
             seen_urls.add(absolute)
             assets.append({"url": absolute, "asset_type": asset_type})
 
-    # ── Images ────────────────────────────────────────────────────────────────
     for tag in soup.find_all("img"):
         if src := tag.get("src"):
             add(src, "image")
-        # Handle srcset (comma-separated list of "url size" pairs)
         if srcset := tag.get("srcset"):
             for part in srcset.split(","):
                 candidate = part.strip().split()[0]
                 add(candidate, "image")
 
-    # ── Scripts ───────────────────────────────────────────────────────────────
     for tag in soup.find_all("script", src=True):
         add(tag["src"], "script")
 
-    # ── Stylesheets ───────────────────────────────────────────────────────────
     for tag in soup.find_all("link"):
         rel = tag.get("rel", [])
         if isinstance(rel, str):
@@ -139,7 +96,6 @@ def extract_assets_from_html(html: str, base_url: str) -> list[dict]:
         elif any(r in rel_lower for r in ("icon", "shortcut icon", "apple-touch-icon")):
             add(href, "image")
 
-    # ── Fonts via @font-face (inline <style> blocks) ──────────────────────────
     for style_tag in soup.find_all("style"):
         import re
         for url_match in re.finditer(r"url\(['\"]?(https?://[^'\")\s]+)['\"]?\)", style_tag.get_text()):
@@ -151,24 +107,13 @@ def extract_assets_from_html(html: str, base_url: str) -> list[dict]:
     return assets
 
 
-# ── Per-asset size fetch ──────────────────────────────────────────────────────
-
 async def fetch_asset_info(client: httpx.AsyncClient, asset: dict) -> dict:
-    """
-    Determine the byte size and MIME type of a single asset.
-
-    Strategy:
-      1. HEAD request → read Content-Length header
-      2. Range GET (bytes=0-0) → read Content-Range total
-      3. Give up and record size as 0 (asset will be excluded from results)
-    """
     url = asset["url"]
     asset_type = asset["asset_type"]
     size_bytes = 0
     content_type = ""
 
     try:
-        # ── Attempt 1: HEAD request ───────────────────────────────────────────
         head = await client.head(
             url,
             headers=BROWSER_HEADERS,
@@ -182,7 +127,8 @@ async def fetch_asset_info(client: httpx.AsyncClient, asset: dict) -> dict:
             size_bytes = int(raw_length)
 
         else:
-            # ── Attempt 2: Range GET to discover total size ───────────────────
+            # Some servers omit Content-Length on HEAD; a 1-byte range GET
+            # still reveals the full size via Content-Range.
             rng = await client.get(
                 url,
                 headers={**BROWSER_HEADERS, "Range": "bytes=0-0"},
@@ -201,10 +147,8 @@ async def fetch_asset_info(client: httpx.AsyncClient, asset: dict) -> dict:
     except Exception as exc:
         logger.debug("Could not size asset %s: %s", url, exc)
 
-    # Refine asset_type using the MIME type if available
     refined_type = _refine_asset_type(asset_type, content_type)
 
-    # Extract a readable filename from the URL path
     path_part = urlparse(url).path.rstrip("/")
     filename = path_part.split("/")[-1].split("?")[0] or "unknown"
 
@@ -218,7 +162,6 @@ async def fetch_asset_info(client: httpx.AsyncClient, asset: dict) -> dict:
 
 
 def _refine_asset_type(guessed_type: str, content_type: str) -> str:
-    """Override the HTML-guessed asset type with the actual MIME type."""
     ct = content_type.lower()
     if "image" in ct:
         return "image"
@@ -233,33 +176,14 @@ def _refine_asset_type(guessed_type: str, content_type: str) -> str:
     return guessed_type
 
 
-# ── Main entry point ──────────────────────────────────────────────────────────
-
 async def scrape_page(url: str) -> dict:
     """
-    Scrape a URL, extract all assets, and fetch their sizes concurrently.
-
-    Args:
-        url: Target web page URL (must be http/https)
-
-    Returns:
-        {
-            "base_url":            str    – final URL after redirects
-            "html_size":           int    – size of the HTML document in bytes
-            "assets":              list   – list of asset dicts with size info
-            "total_assets_found":  int    – count before the cap is applied
-        }
-
-    Raises:
-        ValueError: For any network or HTTP-level error (caller converts to 422)
+    Raises ValueError for any network/HTTP-level error (caller converts to a 422).
     """
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_ASSET_REQUESTS)
 
-    # Disable SSL verification to avoid failures on sites with cert issues.
-    # In production, verify=True is preferable – log a warning for now.
-    async with httpx.AsyncClient(verify=False, timeout=settings.SCRAPER_TIMEOUT) as client:
+    async with httpx.AsyncClient(verify=True, timeout=settings.SCRAPER_TIMEOUT) as client:
 
-        # ── Step 1: Fetch the HTML page ───────────────────────────────────────
         try:
             response = await client.get(
                 url, headers=BROWSER_HEADERS, follow_redirects=True
@@ -281,11 +205,10 @@ async def scrape_page(url: str) -> dict:
 
         html_content = response.text
         html_size = len(response.content)
-        base_url = str(response.url)  # Use the final URL after any redirects
+        base_url = str(response.url)
 
         logger.info("Fetched %s  HTML size: %d bytes", base_url, html_size)
 
-        # ── Step 2: Parse the DOM ─────────────────────────────────────────────
         raw_assets = extract_assets_from_html(html_content, base_url)
         total_found = len(raw_assets)
         raw_assets = raw_assets[: settings.MAX_ASSETS_PER_PAGE]
@@ -294,7 +217,6 @@ async def scrape_page(url: str) -> dict:
             "Found %d assets (capped at %d)", total_found, settings.MAX_ASSETS_PER_PAGE
         )
 
-        # ── Step 3: Fetch asset sizes concurrently ────────────────────────────
         async def bounded_fetch(asset: dict) -> dict:
             async with semaphore:
                 return await fetch_asset_info(client, asset)
@@ -302,7 +224,6 @@ async def scrape_page(url: str) -> dict:
         tasks = [bounded_fetch(a) for a in raw_assets]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Keep only successful results with a known size
         assets = [
             r
             for r in results

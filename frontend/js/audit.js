@@ -1,32 +1,17 @@
-/**
- * js/audit.js
- * ───────────
- * Handles the full audit workflow on the home page:
- *   1. URL input validation
- *   2. Animated loading sequence
- *   3. POST /api/audit API call
- *   4. Full results dashboard rendering (gauge, metrics, charts, asset list)
- *   5. Recent audits history list
- *   6. Filter tabs on the asset table
- */
-
 "use strict";
 
-// ── DOM references ────────────────────────────────────────────────────────────
-const heroSection    = document.getElementById("hero-section");
+const heroSection = document.getElementById("hero-section");
 const loadingSection = document.getElementById("loading-section");
 const resultsSection = document.getElementById("results-section");
-const recentSection  = document.getElementById("recent-section");
-const urlInput       = document.getElementById("url-input");
-const searchWrap     = document.getElementById("search-wrap");
-const auditBtn       = document.getElementById("audit-btn");
+const recentSection = document.getElementById("recent-section");
+const urlInput = document.getElementById("url-input");
+const searchWrap = document.getElementById("search-wrap");
+const auditBtn = document.getElementById("audit-btn");
 
-// ── State ─────────────────────────────────────────────────────────────────────
 let currentAuditData = null;
-let activeFilter     = "all";
-let loadTimer        = null;
+let activeFilter = "all";
+let loadTimer = null;
 
-// ── Loading steps ─────────────────────────────────────────────────────────────
 const LOADING_STEPS = [
   "Resolving DNS and connecting…",
   "Fetching page HTML…",
@@ -36,27 +21,19 @@ const LOADING_STEPS = [
   "Generating report…",
 ];
 
-// ── Entry points ──────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   loadRecentAudits();
 
-  // Submit on Enter key
   urlInput?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") handleAuditSubmit();
   });
 
-  // Submit on button click
   auditBtn?.addEventListener("click", handleAuditSubmit);
 });
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AUDIT SUBMISSION
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function handleAuditSubmit() {
   const url = urlInput.value.trim();
 
-  // Basic client-side validation
   if (!url) {
     shakeSearchBar();
     return;
@@ -75,17 +52,13 @@ async function handleAuditSubmit() {
     currentAuditData = result;
     stopLoadingAnimation();
     showResults(result);
-    loadRecentAudits(); // Refresh history after new audit
+    loadRecentAudits();
   } catch (err) {
     stopLoadingAnimation();
     showError(err.message || "An unexpected error occurred.");
     showHero();
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// API CALL
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function callAuditApi(url) {
   const response = await fetch(`${window.API_BASE}/api/audit`, {
@@ -97,16 +70,11 @@ async function callAuditApi(url) {
   const data = await response.json();
 
   if (!response.ok) {
-    const msg = data.detail || `Server error (${response.status})`;
-    throw new Error(msg);
+    throw new Error(data.detail || `Server error (${response.status})`);
   }
 
   return data;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// VIEW TRANSITIONS
-// ─────────────────────────────────────────────────────────────────────────────
 
 function showHero() {
   heroSection?.classList.remove("hidden");
@@ -119,11 +87,9 @@ function showLoading(url) {
   loadingSection?.classList.remove("hidden");
   resultsSection?.classList.add("hidden");
 
-  // Set the URL being audited
   const loadingUrl = document.getElementById("loading-url");
   if (loadingUrl) loadingUrl.textContent = url;
 
-  // Build loading steps DOM
   buildLoadingSteps();
 }
 
@@ -134,10 +100,6 @@ function showResults(data) {
   window.scrollTo({ top: 0, behavior: "smooth" });
   renderDashboard(data);
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// LOADING ANIMATION
-// ─────────────────────────────────────────────────────────────────────────────
 
 function buildLoadingSteps() {
   const container = document.getElementById("loading-steps");
@@ -158,7 +120,7 @@ function buildLoadingSteps() {
 }
 
 function setStepState(index, state) {
-  const dot  = document.getElementById(`step-dot-${index}`);
+  const dot = document.getElementById(`step-dot-${index}`);
   const text = document.getElementById(`step-text-${index}`);
   if (!dot) return;
   dot.classList.remove("done", "active");
@@ -182,75 +144,57 @@ function startLoadingAnimation() {
 
 function stopLoadingAnimation() {
   clearInterval(loadTimer);
-  // Mark remaining steps as done for visual polish
   LOADING_STEPS.forEach((_, i) => setStepState(i, "done"));
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// RESULTS RENDERING
-// ─────────────────────────────────────────────────────────────────────────────
 
 function renderDashboard(data) {
   const { formatBytes, formatCO2, gradeColor, statusColor } = window.EcoUtil;
 
-  // ── Header ────────────────────────────────────────────────────────────────
-  const urlEl   = document.getElementById("result-url");
+  const urlEl = document.getElementById("result-url");
   const gradePill = document.getElementById("result-grade-pill");
   if (urlEl) urlEl.textContent = data.url;
   if (gradePill) {
     const col = gradeColor(data.grade);
     gradePill.textContent = `${data.grade} Grade`;
     gradePill.style.background = `${col}18`;
-    gradePill.style.border     = `1px solid ${col}40`;
-    gradePill.style.color      = col;
+    gradePill.style.border = `1px solid ${col}40`;
+    gradePill.style.color = col;
   }
 
-  // ── Grade Gauge (SVG) ─────────────────────────────────────────────────────
-  const CIRC  = 2 * Math.PI * 62;        // r = 62
+  const CIRC = 2 * Math.PI * 62;
   const filled = (data.score / 100) * CIRC;
-  const col    = gradeColor(data.grade);
-  const label  = data.score >= 80 ? "Sustainable"
-               : data.score >= 60 ? "Needs Work"
-               : "High Impact";
+  const col = gradeColor(data.grade);
+  const label = data.score >= 80 ? "Sustainable"
+    : data.score >= 60 ? "Needs Work"
+      : "High Impact";
 
-  setEl("gauge-arc",   "stroke-dasharray", `${filled} ${CIRC}`);
-  setEl("gauge-arc",   "stroke",           col);
-  setEl("gauge-grade", "textContent",      data.grade);
-  setEl("gauge-score", "textContent",      `Score ${data.score}/100`);
+  setEl("gauge-arc", "stroke-dasharray", `${filled} ${CIRC}`);
+  setEl("gauge-arc", "stroke", col);
+  setEl("gauge-grade", "textContent", data.grade);
+  setEl("gauge-score", "textContent", `Score ${data.score}/100`);
   const gaugeLabel = document.getElementById("gauge-label");
   if (gaugeLabel) { gaugeLabel.textContent = label; gaugeLabel.style.color = col; }
 
-  // ── Metric cards ──────────────────────────────────────────────────────────
-  setTxt("metric-co2",     `${formatCO2(data.total_co2)}`);
-  setTxt("metric-annual",  `${data.annual_co2_kg} kg CO₂/yr`);
-  setTxt("metric-weight",  `${data.page_weight_mb} MB`);
-  setTxt("metric-requests",`${data.request_count} requests`);
+  setTxt("metric-co2", `${formatCO2(data.total_co2)}`);
+  setTxt("metric-annual", `${data.annual_co2_kg} kg CO₂/yr`);
+  setTxt("metric-weight", `${data.page_weight_mb} MB`);
+  setTxt("metric-requests", `${data.request_count} requests`);
   setTxt("metric-comparison", data.comparison);
-  setTxt("metric-trees",   `${data.trees_to_offset} trees to offset annually`);
+  setTxt("metric-trees", `${data.trees_to_offset} trees to offset annually`);
 
-  // ── ML cross-validation card (research component) ─────────────────────────
   renderMLCard(data);
 
-  // ── Charts ────────────────────────────────────────────────────────────────
   window.EcoCharts?.destroyAll();
-  // Small delay lets the canvas render before Chart.js measures it
   setTimeout(() => {
     window.EcoCharts?.renderPieChart("pie-chart", data.categories);
     window.EcoCharts?.renderBarChart("bar-chart", data.categories);
   }, 80);
 
-  // ── Asset deep-dive ───────────────────────────────────────────────────────
   activeFilter = "all";
   renderAssets(data.assets, "all");
   setupFilterTabs(data.assets);
 }
 
-// ── ML cross-validation card ────────────────────────────────────────────────
-
-/**
- * Show/hide and populate the ML cross-validation card based on whether
- * the API returned an ml_prediction object (i.e. a trained model exists).
- */
 function renderMLCard(data) {
   const card = document.getElementById("ml-card");
   if (!card) return;
@@ -284,15 +228,13 @@ function renderMLCard(data) {
   setTxt("ml-model-value", formatCO2(ml.predicted_co2_grams));
 }
 
-// ── Asset list ────────────────────────────────────────────────────────────────
-
 const TYPE_META = {
-  image:  { label: "IMG", color: "#0A84FF" },
-  script: { label: "JS",  color: "#FF9F0A" },
-  css:    { label: "CSS", color: "#BF5AF2" },
-  font:   { label: "TTF", color: "#34C759" },
-  media:  { label: "VID", color: "#FF3B30" },
-  other:  { label: "?",   color: "#86868B" },
+  image: { label: "IMG", color: "#0A84FF" },
+  script: { label: "JS", color: "#FF9F0A" },
+  css: { label: "CSS", color: "#BF5AF2" },
+  font: { label: "TTF", color: "#34C759" },
+  media: { label: "VID", color: "#FF3B30" },
+  other: { label: "?", color: "#86868B" },
 };
 
 function renderAssets(assets, filter) {
@@ -313,9 +255,9 @@ function renderAssets(assets, filter) {
   }
 
   list.innerHTML = filtered.map((a) => {
-    const col  = statusColor(a.status);
+    const col = statusColor(a.status);
     const meta = TYPE_META[a.asset_type] || TYPE_META.other;
-    const id   = `asset-${encodeURIComponent(a.url).slice(0, 30)}`;
+    const id = `asset-${encodeURIComponent(a.url).slice(0, 30)}`;
 
     return `
     <div class="asset-row" id="${id}" onclick="toggleAsset('${id}')">
@@ -351,12 +293,10 @@ window.toggleAsset = function (id) {
   document.getElementById(id)?.classList.toggle("open");
 };
 
-// ── Filter tabs ────────────────────────────────────────────────────────────────
-
 const TAB_CONFIG = [
-  { key: "all",   label: "All",       cls: "active-all"   },
-  { key: "red",   label: "Critical",  cls: "active-red"   },
-  { key: "amber", label: "Moderate",  cls: "active-amber" },
+  { key: "all", label: "All", cls: "active-all" },
+  { key: "red", label: "Critical", cls: "active-red" },
+  { key: "amber", label: "Moderate", cls: "active-amber" },
   { key: "green", label: "Optimised", cls: "active-green" },
 ];
 
@@ -380,29 +320,21 @@ window.applyFilter = function (filter, btn, event) {
   event?.stopPropagation();
   activeFilter = filter;
 
-  // Reset all tabs
   document.querySelectorAll(".filter-tab").forEach((t) => {
     t.className = "filter-tab";
   });
-  // Activate clicked tab
-  const cls = btn.dataset.cls;
-  btn.classList.add(cls);
+  btn.classList.add(btn.dataset.cls);
 
   renderAssets(currentAuditData?.assets || [], filter);
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// RECENT AUDITS
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function loadRecentAudits() {
   try {
     const res = await fetch(`${window.API_BASE}/api/audits/recent?limit=8`);
     if (!res.ok) return;
-    const audits = await res.json();
-    renderRecentAudits(audits);
+    renderRecentAudits(await res.json());
   } catch (_) {
-    // Silently fail – recent audits are a bonus feature
+    // non-critical: history list just stays empty
   }
 }
 
@@ -452,28 +384,20 @@ window.loadAuditById = async function (id) {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Set a DOM element attribute by id */
 function setEl(id, attr, value) {
   const el = document.getElementById(id);
   if (!el) return;
   if (attr === "textContent") el.textContent = value;
   else el.setAttribute(attr, value);
 }
-/** Set element text content by id */
 function setTxt(id, text) { setEl(id, "textContent", text); }
 
-/** Shake the search bar to indicate invalid input */
 function shakeSearchBar() {
   if (!searchWrap) return;
   searchWrap.style.boxShadow = "0 0 0 3px rgba(255,59,48,0.35)";
   setTimeout(() => (searchWrap.style.boxShadow = ""), 700);
 }
 
-/** Display an error toast / banner */
 function showError(msg) {
   const banner = document.getElementById("error-banner");
   if (banner) {
@@ -485,14 +409,12 @@ function showError(msg) {
   }
 }
 
-/** Safely escape HTML for insertion into innerHTML */
 function escHtml(str) {
   const d = document.createElement("div");
   d.textContent = str ?? "";
   return d.innerHTML;
 }
 
-// Make goBack available globally (called by inline onclick in HTML)
 window.goBack = function () {
   resultsSection?.classList.add("hidden");
   loadingSection?.classList.add("hidden");
