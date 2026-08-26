@@ -44,7 +44,7 @@ ecoweb-auditor/
 
 | Tool | Version | Download |
 |------|---------|----------|
-| Python | 3.11 or higher | https://python.org |
+| Python | 3.12 (newer versions may not have prebuilt wheels for scikit-learn yet) | https://python.org |
 | PostgreSQL | 14 or higher (local) | https://postgresql.org |
 | pip | latest | bundled with Python |
 | A modern browser | Chrome, Firefox, Edge | — |
@@ -68,14 +68,15 @@ CREATE DATABASE ecoweb_db;
 
 ## 2 · Configure the Backend
 
-Create a `.env` file inside `ecoweb-auditor/backend/` with your database credentials:
+The defaults in `app/config.py` already assume a local Postgres server with
+user `postgres`, password `password`, on `localhost:5432`, database
+`ecoweb_db` — if that matches your setup, you can skip this step entirely.
+
+Otherwise, create a `.env` file inside `ecoweb-auditor/backend/` and override
+just what's different (usually only your Postgres password):
 
 ```env
-DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/ecoweb_db
-ALLOWED_ORIGINS=http://localhost:5500,http://127.0.0.1:5500,http://localhost:3000,null
-SCRAPER_TIMEOUT=30
-MAX_ASSETS_PER_PAGE=80
-DEBUG=False
+DATABASE_URL=postgresql+asyncpg://postgres:YOUR_PASSWORD@localhost:5432/ecoweb_db
 ```
 
 ---
@@ -85,8 +86,12 @@ DEBUG=False
 ```bash
 # Still inside the backend/ folder
 
-# (Recommended) Create a virtual environment first
-python -m venv venv
+# Create a virtual environment using Python 3.12 specifically.
+# If "python" or "py" on your machine defaults to a newer version (e.g.
+# 3.14), scikit-learn won't have a prebuilt wheel for it yet and the
+# install below will fail trying to build it from source.
+py -3.12 -m venv venv          # Windows, if you have the py launcher
+# python3.12 -m venv venv      # macOS / Linux
 
 # Activate the virtual environment
 # Windows:
@@ -94,8 +99,9 @@ venv\Scripts\activate
 # macOS / Linux:
 source venv/bin/activate
 
-# Install all dependencies
-pip install -r requirements.txt
+# Install all dependencies (use the venv's own pip, not a bare `pip`,
+# to avoid accidentally installing outside the virtual environment)
+python -m pip install -r requirements.txt
 ```
 
 ---
@@ -129,26 +135,21 @@ Open your browser and visit:
 
 ## 5 · Open the Frontend
 
-The frontend is plain HTML — no build step required. Open
-`frontend/js/main.js` and set `API_BASE` to `http://localhost:8000` so it
-talks to your local backend.
+The frontend is plain HTML — no build step required. It automatically talks
+to your local backend (`http://localhost:8000`) whenever it's served from
+`localhost`/`127.0.0.1`, and to the deployed API otherwise — no manual
+edits needed.
 
-**Option A · VS Code Live Server (recommended)**
-1. Open the `ecoweb-auditor/frontend/` folder in VS Code
-2. Install the **Live Server** extension (Ritwick Dey)
-3. Right-click `index.html` → **Open with Live Server**
-4. The site opens at `http://127.0.0.1:5500`
-
-**Option B · Python built-in server**
+**Option A · Python built-in server**
 ```bash
 cd ecoweb-auditor/frontend
 python -m http.server 5500
 # Visit http://localhost:5500
 ```
 
-**Option C · Open directly (file://)**
+**Option B · Open directly (file://)**
 Double-click `index.html`. Note: `backdrop-filter` (glassmorphism) may not
-render in some browsers over `file://`. Use Live Server for the best experience.
+render in some browsers over `file://`.
 
 ---
 
@@ -235,9 +236,11 @@ formula's output — see the `ml_prediction` field in the audit response.
 | `asyncpg` auth error | Double-check `DATABASE_URL` in `.env` |
 | CORS error in browser | Ensure your frontend URL is in `ALLOWED_ORIGINS` |
 | `ModuleNotFoundError` | Run `pip install -r requirements.txt` inside your venv |
+| `pip install` fails building `scikit-learn` | Your venv is using a Python version too new for the pinned scikit-learn wheel — recreate it with `py -3.12 -m venv venv` |
+| `'uvicorn' is not recognized` | Your venv has no packages installed yet (or wasn't actually activated when you ran `pip install`) — recreate the venv and reinstall |
 | No assets found | Some sites block scrapers; try a different URL |
 | Audit fails with a TLS/certificate error | The target site has an invalid certificate — see Known Limitations above |
-| Glassmorphism not showing | Open via Live Server, not `file://` |
+| Glassmorphism not showing | Use `python -m http.server`, not `file://` |
 
 ---
 
