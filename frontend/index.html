@@ -268,14 +268,39 @@
     </div><!-- /results-inner -->
   </section>
 
+  <section id="compare-section" class="hidden">
+    <div class="results-inner">
+      <div class="results-header">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <button class="btn btn-ghost" onclick="goBack()" style="padding:7px 14px;font-size:12px;">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M7 2L3 5L7 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+            </svg>
+            Back
+          </button>
+          <div class="results-url">Comparing <span>two audits</span></div>
+        </div>
+      </div>
+      <!-- Filled by renderCompare() in audit.js -->
+      <div id="compare-content"></div>
+    </div>
+  </section>
+
   <section id="recent-section" style="padding:0 24px 80px;">
     <div style="max-width:1100px;margin:0 auto;">
-      <div style="margin-bottom:6px;" class="section-label">Audit History</div>
-      <div style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.6px;margin-bottom:4px;">
-        Recent Audits
-      </div>
-      <div style="font-size:13px;color:var(--text-sub);margin-bottom:20px;">
-        Click a row to reload a saved audit.
+      <div class="recent-header">
+        <div>
+          <div style="margin-bottom:6px;" class="section-label">Audit History</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.6px;margin-bottom:4px;">
+            Recent Audits
+          </div>
+          <div style="font-size:13px;color:var(--text-sub);">
+            Click a row to reload a saved audit, or tick two to compare them.
+          </div>
+        </div>
+        <button class="btn btn-primary" id="compare-btn" onclick="compareSelected()" disabled>
+          Compare (0/2)
+        </button>
       </div>
       <div class="recent-grid" id="recent-grid">
         <!-- Rows injected by audit.js -->
