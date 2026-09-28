@@ -4,6 +4,7 @@ const heroSection = document.getElementById("hero-section");
 const loadingSection = document.getElementById("loading-section");
 const resultsSection = document.getElementById("results-section");
 const recentSection = document.getElementById("recent-section");
+const compareSection = document.getElementById("compare-section");
 const urlInput = document.getElementById("url-input");
 const searchWrap = document.getElementById("search-wrap");
 const auditBtn = document.getElementById("audit-btn");
@@ -12,6 +13,10 @@ let currentAuditData = null;
 let activeFilter = "all";
 let loadTimer = null;
 let auditInFlight = false;
+
+const MAX_COMPARE = 2;
+const selectedForCompare = new Set();
+let recentAuditsById = new Map();
 
 const LOADING_STEPS = [
   "Resolving DNS and connecting…",
@@ -86,12 +91,14 @@ function showHero() {
   heroSection?.classList.remove("hidden");
   loadingSection?.classList.add("hidden");
   resultsSection?.classList.add("hidden");
+  compareSection?.classList.add("hidden");
 }
 
 function showLoading(url, simple = false) {
   heroSection?.classList.add("hidden");
   loadingSection?.classList.remove("hidden");
   resultsSection?.classList.add("hidden");
+  compareSection?.classList.add("hidden");
 
   const loadingUrl = document.getElementById("loading-url");
   if (loadingUrl) loadingUrl.textContent = url;
@@ -372,6 +379,13 @@ function renderRecentAudits(audits) {
 
   const { formatCO2, gradeColor, formatDate } = window.EcoUtil;
 
+  recentAuditsById = new Map(audits.map((a) => [a.audit_id, a]));
+  // Drop selections for audits no longer listed (e.g. removed by the retention purge).
+  for (const id of selectedForCompare) {
+    if (!recentAuditsById.has(id)) selectedForCompare.delete(id);
+  }
+  updateCompareButton();
+
   if (audits.length === 0) {
     grid.innerHTML = `<p style="font-size:13px;color:var(--text-sub);">No audits yet. Run your first one above!</p>`;
     return;
@@ -381,6 +395,9 @@ function renderRecentAudits(audits) {
     const col = gradeColor(a.grade);
     return `
     <div class="recent-row" onclick="loadAuditById(${a.audit_id})">
+      <input type="checkbox" class="compare-check" data-id="${a.audit_id}"
+        aria-label="Select for comparison" ${selectedForCompare.has(a.audit_id) ? "checked" : ""}
+        onclick="event.stopPropagation()" onchange="toggleCompareSelect(${a.audit_id}, this)">
       <div class="recent-url" title="${escHtml(a.url)}">${escHtml(a.url)}</div>
       <div class="recent-co2 sub">${formatCO2(a.total_co2)} CO₂</div>
       <div class="recent-co2 sub">${a.page_weight_mb} MB</div>
@@ -408,6 +425,128 @@ window.loadAuditById = async function (id) {
     showHero();
   }
 };
+
+window.toggleCompareSelect = function (id, box) {
+  if (box.checked) {
+    selectedForCompare.add(id);
+    // Selecting a third audit replaces the oldest selection.
+    if (selectedForCompare.size > MAX_COMPARE) {
+      const oldest = selectedForCompare.values().next().value;
+      selectedForCompare.delete(oldest);
+      const oldBox = document.querySelector(`.compare-check[data-id="${oldest}"]`);
+      if (oldBox) oldBox.checked = false;
+    }
+  } else {
+    selectedForCompare.delete(id);
+  }
+  updateCompareButton();
+};
+
+function updateCompareButton() {
+  const btn = document.getElementById("compare-btn");
+  if (!btn) return;
+  btn.textContent = `Compare (${selectedForCompare.size}/${MAX_COMPARE})`;
+  btn.disabled = selectedForCompare.size !== MAX_COMPARE;
+}
+
+window.compareSelected = async function () {
+  if (selectedForCompare.size !== MAX_COMPARE) return;
+  // IDs are auto-incrementing, so sorting puts the older audit first.
+  const ids = [...selectedForCompare].sort((x, y) => x - y);
+  showLoading("Loading audits to compare…", true);
+  try {
+    const [a, b] = await Promise.all(ids.map(async (id) => {
+      const res = await fetch(`${window.API_BASE}/api/audit/${id}`);
+      if (!res.ok) throw new Error("Could not load one of the selected audits.");
+      return res.json();
+    }));
+    renderCompare(a, b);
+    loadingSection?.classList.add("hidden");
+    compareSection?.classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (err) {
+    showError(err.message);
+    showHero();
+  }
+};
+
+// Percent change from a to b; null when a is 0 (no meaningful baseline).
+function pctChange(a, b) {
+  return a === 0 ? null : Math.round(((b - a) / a) * 100);
+}
+
+function deltaCell(a, b, higherIsBetter) {
+  const pct = pctChange(a, b);
+  if (a === b || pct === 0) return `<span class="delta same">—</span>`;
+  const better = higherIsBetter ? b > a : b < a;
+  const amount = pct === null ? "new" : `${Math.abs(pct)}%`;
+  return `<span class="delta ${better ? "good" : "bad"}">${b > a ? "▲" : "▼"} ${amount}</span>`;
+}
+
+function compareSummary(a, b) {
+  const { formatCO2 } = window.EcoUtil;
+  const pct = pctChange(a.total_co2, b.total_co2);
+  if (a.total_co2 === b.total_co2 || pct === 0) {
+    return `<div class="compare-summary">Both audits have effectively the same carbon footprint per visit.</div>`;
+  }
+  const better = b.total_co2 < a.total_co2;
+  const amount = pct === null ? "more" : `${Math.abs(pct)}% ${better ? "less" : "more"}`;
+  return `<div class="compare-summary ${better ? "good" : "bad"}">
+    Audit B emits <strong>${amount}</strong> CO₂ per visit than Audit A
+    (${formatCO2(b.total_co2)} vs ${formatCO2(a.total_co2)}).
+  </div>`;
+}
+
+function renderCompare(a, b) {
+  const el = document.getElementById("compare-content");
+  if (!el) return;
+  const { formatBytes, formatCO2, gradeColor, formatDate } = window.EcoUtil;
+
+  const head = (d, tag) => {
+    const meta = recentAuditsById.get(d.audit_id);
+    const when = meta ? ` · ${formatDate(meta.created_at)}` : "";
+    return `
+    <div class="card compare-head">
+      <div class="section-label">${tag}${when}</div>
+      <div class="compare-url" title="${escHtml(d.url)}">${escHtml(d.url)}</div>
+      <div class="compare-grade" style="color:${gradeColor(d.grade)}">${escHtml(d.grade)}</div>
+      <div class="compare-sub">Score ${d.score}/100 · ${formatCO2(d.total_co2)} CO₂ per visit</div>
+    </div>`;
+  };
+
+  const row = (label, va, vb, fmt, higherIsBetter = false) => `
+    <tr>
+      <td>${label}</td>
+      <td>${fmt(va)}</td>
+      <td>${fmt(vb)}</td>
+      <td>${deltaCell(va, vb, higherIsBetter)}</td>
+    </tr>`;
+
+  const categoryNames = [...new Set([...a.categories, ...b.categories].map((c) => c.name))];
+  const categoryCO2 = (d, name) => d.categories.find((c) => c.name === name)?.total_co2 ?? 0;
+
+  el.innerHTML = `
+    <div class="compare-heads">
+      ${head(a, "A · Older")}
+      <div class="compare-vs">vs</div>
+      ${head(b, "B · Newer")}
+    </div>
+    ${compareSummary(a, b)}
+    <div class="card compare-table-wrap">
+      <table class="compare-table">
+        <thead><tr><th>Metric</th><th>A</th><th>B</th><th>Change</th></tr></thead>
+        <tbody>
+          ${row("Score", a.score, b.score, (v) => `${v}/100`, true)}
+          ${row("CO₂ per visit", a.total_co2, b.total_co2, formatCO2)}
+          ${row("Annual CO₂", a.annual_co2_kg, b.annual_co2_kg, (v) => `${v} kg`)}
+          ${row("Page weight", a.total_bytes, b.total_bytes, formatBytes)}
+          ${row("Requests", a.request_count, b.request_count, (v) => v)}
+          ${categoryNames.length ? `<tr class="compare-group"><td colspan="4">CO₂ by asset type</td></tr>` : ""}
+          ${categoryNames.map((n) => row(escHtml(n), categoryCO2(a, n), categoryCO2(b, n), (v) => (v ? formatCO2(v) : "—"))).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
 
 function setEl(id, attr, value) {
   const el = document.getElementById(id);
@@ -442,6 +581,7 @@ function escHtml(str) {
 
 window.goBack = function () {
   resultsSection?.classList.add("hidden");
+  compareSection?.classList.add("hidden");
   loadingSection?.classList.add("hidden");
   heroSection?.classList.remove("hidden");
   urlInput.value = "";
