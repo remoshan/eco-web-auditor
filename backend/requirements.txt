@@ -1,19 +1,6 @@
-fastapi==0.111.0
-uvicorn[standard]==0.30.1
-
-httpx==0.27.0
-
-beautifulsoup4==4.12.3
-lxml==5.2.2
-
-sqlalchemy==2.0.30
-asyncpg==0.29.0
-
-pydantic==2.7.1
-pydantic-settings==2.3.0
-python-dotenv==1.0.1
-
-# Required to load the trained model in ml/ (predictor.py)
-scikit-learn==1.4.2
-numpy==1.26.4
-joblib==1.4.2
+fastapi==0.141.1
+uvicorn==0.54.0
+httpx==0.28.1
+beautifulsoup4==4.15.0
+pydantic==2.13.5
+pydantic-settings==2.15.0

@@ -1,25 +1,9 @@
-# Environment variables
 .env
-
-# Python
 __pycache__/
-*.py[cod]
 venv/
-.venv/
-env/
-*.egg-info/
-
-# Build output
-build/
+node_modules/
 dist/
-
-# IDE settings
 .vscode/
 .idea/
-
-# OS files
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
