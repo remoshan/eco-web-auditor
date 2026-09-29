@@ -1,25 +1,16 @@
-# Environment variables
+# Local secrets, never committed
 .env
 
 # Python
 __pycache__/
-*.py[cod]
 venv/
-.venv/
-env/
-*.egg-info/
 
-# Build output
-build/
+# Node
+node_modules/
 dist/
 
-# IDE settings
+# IDE / OS
 .vscode/
 .idea/
-
-# OS files
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log

@@ -5,7 +5,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Comma-separated so pydantic-settings doesn't try to JSON-decode it.
-    ALLOWED_ORIGINS: str = "http://localhost:5500,http://127.0.0.1:5500"
+    # Locally the Vite dev/preview server proxies /api, so only the deployed frontend needs CORS.
+    ALLOWED_ORIGINS: str = "https://eco-web-auditor.vercel.app"
 
     SCRAPER_TIMEOUT: int = 30
     MAX_ASSETS_PER_PAGE: int = 80
