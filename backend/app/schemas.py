@@ -1,36 +1,29 @@
-"""Request and response models for the /api endpoints."""
-
 from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
-AssetType = Literal["image", "script", "css", "font", "media", "other"]
-Status = Literal["green", "amber", "red"]
 Verdict = Literal["better", "worse", "same"]
 
 
 class AuditRequest(BaseModel):
-    url: HttpUrl = Field(..., description="Website to audit; https:// is assumed when no scheme is given.",
-                         examples=["python.org"])
+    url: HttpUrl = Field(examples=["python.org"])
 
     @field_validator("url", mode="before")
     @classmethod
     def add_scheme(cls, v: object) -> object:
-        if isinstance(v, str):
-            v = v.strip()
-            if v and "://" not in v:
-                v = "https://" + v
+        if isinstance(v, str) and (v := v.strip()) and "://" not in v:
+            return "https://" + v
         return v
 
 
 class AssetInfo(BaseModel):
     name: str
     url: str
-    asset_type: AssetType
+    asset_type: Literal["image", "script", "css", "font", "media"]
     size_bytes: int
     co2_grams: float
-    status: Status
+    status: Literal["green", "amber", "red"]
     optimization_tip: str
 
 
@@ -46,19 +39,20 @@ class MLPrediction(BaseModel):
     predicted_co2_grams: float
     model_name: str
     r2_score: float
-    difference_pct: float | None = None
-    agreement: Literal["close", "divergent"] | None = Field(
-        None, description="Whether the model lands within the tolerance of the SWD figure.")
+    difference_pct: float | None
+    agreement: Literal["close", "divergent"] | None
 
 
-class AuditSummary(BaseModel):
-    """The fields /api/compare needs; a full AuditResponse satisfies it."""
+class CompareSide(BaseModel):
     id: str
     url: str
     audited_at: datetime
     grade: str
     score: int
-    total_co2: float = Field(..., description="Grams of CO2 per page visit")
+    total_co2: float
+
+
+class AuditSummary(CompareSide):
     annual_co2_kg: float
     total_bytes: int
     request_count: int
@@ -79,21 +73,12 @@ class CompareRequest(BaseModel):
     b: AuditSummary
 
 
-class CompareSide(BaseModel):
-    id: str
-    url: str
-    audited_at: datetime
-    grade: str
-    score: int
-    total_co2: float
-
-
 class CompareRow(BaseModel):
     key: Literal["score", "total_co2", "annual_co2_kg", "total_bytes", "request_count", "category"]
     label: str
     older: float
     newer: float
-    change_pct: int | None = Field(..., description="Signed % change from older to newer; null when older is 0.")
+    change_pct: int | None
     direction: Literal["up", "down", "same"]
     verdict: Verdict
 
@@ -109,7 +94,7 @@ class CompareResponse(BaseModel):
 
 class GradeBand(BaseModel):
     grade: str
-    max_co2: float | None = Field(..., description="Upper bound in grams per visit; null for the last grade.")
+    max_co2: float | None
     score: int
 
 

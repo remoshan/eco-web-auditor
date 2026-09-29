@@ -211,7 +211,6 @@ export ALLOW_PRIVATE_URLS=true
 | `AUDITS_PER_MINUTE` | `10` | Audits allowed per client IP per minute |
 | `SCRAPER_TIMEOUT` | `30` | Seconds to wait for the audited page |
 | `MAX_ASSETS_PER_PAGE` | `80` | Upper bound on assets sized per audit |
-| `DEBUG` | `false` | Verbose logging |
 
 The frontend needs no configuration. It calls relative `/api` URLs when served from
 `localhost` and the deployed API everywhere else.
@@ -381,7 +380,7 @@ python -m unittest discover tests
 ```
 
 ```
-Ran 12 tests in 0.064s
+Ran 13 tests in 0.040s
 
 OK
 ```
@@ -389,6 +388,7 @@ OK
 The tests cover:
 - URL normalisation
 - The private-address guard, including IPv4-mapped IPv6
+- HTML asset extraction (srcset, preloads, icons, inline font URLs, deduplication)
 - Grade and rating boundaries
 - Compare ordering and verdicts
 - ML model parity with the original scikit-learn predictions
@@ -559,8 +559,7 @@ on a one-byte range request. Servers that send neither are left out of the total
 
 **DNS rebinding.** The private-address guard resolves the host, and httpx resolves it
 again when connecting. A malicious DNS server could change the answer in between. Pinning
-the resolved IP in a custom transport would close the gap. Marked `ponytail:` in
-`scraper.py`.
+the resolved IP in a custom transport would close the gap.
 
 **Rate limit is per process.** It resets on restart, and a client can spoof the first
 `X-Forwarded-For` entry. Moving the limit to Redis or the edge proxy would fix both.

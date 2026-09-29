@@ -1,13 +1,12 @@
 {
   "name": "ecoweb-auditor",
   "private": true,
-  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview",
-    "types": "openapi-typescript http://localhost:8000/openapi.json -o src/api-types.ts"
+    "types": "openapi-typescript http://localhost:8000/openapi.json -o src/api-types.ts && node -e \"const fs=require('fs'),f='src/api-types.ts';fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace(/^\\s*\\/\\*\\*[\\s\\S]*?\\*\\/\\n/gm,'').trimStart())\""
   },
   "dependencies": {
     "chart.js": "^4.5.1",

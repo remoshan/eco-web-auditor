@@ -12,7 +12,6 @@ const PALETTE = ["#0A84FF", "#FF9F0A", "#BF5AF2", "#34C759", "#FF3B30", "#30D158
 const FONT = { family: "-apple-system, BlinkMacSystemFont, sans-serif" };
 const colours = (categories: Category[]) => categories.map((_, i) => PALETTE[i % PALETTE.length]);
 
-// Creates the chart on mount and destroys it on unmount or when the data/theme changes.
 function useChart(build: (css: (name: string) => string) => ChartConfiguration, deps: unknown[]) {
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {

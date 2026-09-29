@@ -6,7 +6,6 @@ import App from "./App";
 import Home from "./pages/Home";
 import "./styles.css";
 
-// Everything except the home page is split into its own chunk and fetched on first visit.
 const router = createBrowserRouter([
   {
     Component: App,

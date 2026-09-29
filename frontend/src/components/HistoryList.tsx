@@ -18,7 +18,6 @@ export default function HistoryList() {
     };
   }, []);
 
-  // Ticking a third audit replaces the oldest selection.
   function toggle(id: string, checked: boolean) {
     setSelected((prev) => (checked ? [...prev, id].slice(-2) : prev.filter((x) => x !== id)));
   }

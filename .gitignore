@@ -1,15 +1,8 @@
-# Local secrets, never committed
 .env
-
-# Python
 __pycache__/
 venv/
-
-# Node
 node_modules/
 dist/
-
-# IDE / OS
 .vscode/
 .idea/
 .DS_Store

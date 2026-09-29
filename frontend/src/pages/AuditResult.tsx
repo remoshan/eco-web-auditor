@@ -180,7 +180,7 @@ function AssetList({ assets }: { assets: Asset[] }) {
         {shown.length === 0 && <div className="asset-empty">No assets in this category.</div>}
         {shown.map((a) => {
           const col = STATUS_COLOR[a.status];
-          const meta = TYPE_META[a.asset_type] ?? TYPE_META.other;
+          const meta = TYPE_META[a.asset_type];
           const isOpen = open === a.url;
           return (
             <div className={`asset-row${isOpen ? " open" : ""}`} key={a.url}>

@@ -1,3 +1,5 @@
+import type { Asset } from "./api";
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -29,11 +31,10 @@ export function gradeColor(grade: string): string {
   return "#FF3B30";
 }
 
-export const TYPE_META: Record<string, { label: string; color: string }> = {
+export const TYPE_META: Record<Asset["asset_type"], { label: string; color: string }> = {
   image: { label: "IMG", color: "#0A84FF" },
   script: { label: "JS", color: "#FF9F0A" },
   css: { label: "CSS", color: "#BF5AF2" },
   font: { label: "TTF", color: "#34C759" },
   media: { label: "VID", color: "#FF3B30" },
-  other: { label: "?", color: "#86868B" },
 };

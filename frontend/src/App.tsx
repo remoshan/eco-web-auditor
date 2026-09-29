@@ -4,7 +4,6 @@ import { API_ORIGIN } from "./api";
 
 type Theme = "light" | "dark";
 
-// Pages read the theme to redraw charts in the matching colours.
 export const useTheme = () => useOutletContext<Theme>();
 
 function Logo() {
@@ -48,9 +47,7 @@ export default function App() {
     document.documentElement.dataset.theme = next;
     try {
       localStorage.setItem("ecoweb-theme", next);
-    } catch {
-      // Storage can be blocked (private mode); the theme still applies for this visit.
-    }
+    } catch {}
     setTheme(next);
   }
 

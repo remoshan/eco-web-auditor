@@ -109,7 +109,6 @@ export default function Home() {
   );
 }
 
-// ponytail: steps advance on a timer, not real progress; stream progress from the backend (SSE) if needed.
 function Loading({ url }: { url: string }) {
   const [step, setStep] = useState(0);
 

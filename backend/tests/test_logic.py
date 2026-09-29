@@ -1,5 +1,3 @@
-"""Run from backend/: python -m unittest discover tests"""
-
 import asyncio
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -12,7 +10,7 @@ from app.schemas import AuditRequest, AuditResponse, AuditSummary
 from app.services import carbon, predictor
 from app.services.audit import run_audit
 from app.services.compare import compare_audits
-from app.services.scraper import BlockedURLError, _reject_private_hosts
+from app.services.scraper import BlockedURLError, extract_assets, reject_private_hosts
 
 
 class UrlNormalisation(unittest.TestCase):
@@ -30,7 +28,7 @@ class UrlNormalisation(unittest.TestCase):
 
 class PrivateHostGuard(unittest.TestCase):
     def check(self, url):
-        asyncio.run(_reject_private_hosts(httpx.Request("GET", url)))
+        asyncio.run(reject_private_hosts(httpx.Request("GET", url)))
 
     def test_blocks_private_and_reserved(self):
         for url in ("http://127.0.0.1/", "http://localhost:8000/", "http://169.254.169.254/latest",
@@ -40,6 +38,22 @@ class PrivateHostGuard(unittest.TestCase):
 
     def test_allows_public_ip(self):
         self.check("http://8.8.8.8/")
+
+
+class AssetExtraction(unittest.TestCase):
+    def test_finds_each_asset_once_with_its_type(self):
+        html = """
+            <img src="/a.png" srcset="/a.png 1x, /a@2x.png 2x, "><img src="#"><img src="data:image/png;base64,x">
+            <script src="app.js"></script><script>inline()</script>
+            <link rel="stylesheet" href="/s.css"><link rel="preload" as="font" href="/f.woff2">
+            <link rel="shortcut icon" href="/favicon.ico"><link rel="canonical" href="/">
+            <style>@font-face { src: url('https://cdn.test/f.woff?v=1'); } body { background: url(https://cdn.test/bg.png) }</style>
+        """
+        self.assertEqual(extract_assets(html, "https://x.test/page/"), {
+            "https://x.test/a.png": "image", "https://x.test/a@2x.png": "image", "https://x.test/page/app.js": "script",
+            "https://x.test/s.css": "css", "https://x.test/f.woff2": "font", "https://x.test/favicon.ico": "image",
+            "https://cdn.test/f.woff?v=1": "font",
+        })
 
 
 class Carbon(unittest.TestCase):
@@ -56,7 +70,6 @@ class Carbon(unittest.TestCase):
 
 class ModelParity(unittest.TestCase):
     def test_matches_scikit_learn_prediction(self):
-        # python.org features and the scikit-learn model's prediction before the JSON export.
         features = {
             "html_size_kb": 51.42, "total_assets": 15, "image_count": 3, "script_count": 8, "css_count": 4,
             "font_count": 0, "media_count": 0, "image_total_kb": 32.54, "script_total_kb": 148.97,
@@ -69,29 +82,28 @@ class ModelParity(unittest.TestCase):
 
     def test_features_cover_the_model(self):
         assets = [{"asset_type": "image", "size_bytes": 2048, "status": "green"}]
-        self.assertTrue(set(predictor._MODEL["features"]) <= set(predictor.build_features(1024, assets)))
+        self.assertTrue(set(predictor.MODEL["features"]) <= set(predictor.build_features(1024, assets)))
 
 
 class Pipeline(unittest.TestCase):
     def test_result_matches_response_schema(self):
         scraped = {"html_size": 50_000, "assets": [
-            {"url": "https://x.test/a.png", "name": "a.png", "asset_type": "image", "size_bytes": 400_000},
             {"url": "https://x.test/a.js", "name": "a.js", "asset_type": "script", "size_bytes": 20_000},
+            {"url": "https://x.test/a.png", "name": "a.png", "asset_type": "image", "size_bytes": 400_000},
         ]}
         with patch("app.services.audit.scrape_page", AsyncMock(return_value=scraped)):
             result = AuditResponse.model_validate(asyncio.run(run_audit("https://x.test/")))
-
         self.assertEqual(result.total_bytes, 470_000)
         self.assertEqual([a.status for a in result.assets], ["red", "green"])
-        self.assertEqual([c.name for c in result.categories], ["Image", "Script"])
+        self.assertEqual([(c.name, c.percentage) for c in result.categories], [("Image", 85.1), ("Script", 4.3)])
         self.assertIn(result.ml_prediction.agreement, ("close", "divergent"))
 
 
 def summary(when, co2, score, categories):
     return AuditSummary(id=str(when), url="https://x.test/", audited_at=when, grade="A", score=score,
-                        total_co2=co2, annual_co2_kg=co2 * 120, total_bytes=int(co2 * 2_793_000),
-                        request_count=10, categories=[{"name": n, "count": 1, "total_bytes": 1, "total_co2": c,
-                                                       "percentage": 0} for n, c in categories])
+                        total_co2=co2, annual_co2_kg=co2 * 120, total_bytes=int(co2 * 2_793_000), request_count=10,
+                        categories=[{"name": n, "count": 1, "total_bytes": 1, "total_co2": c, "percentage": 0}
+                                    for n, c in categories])
 
 
 class Compare(unittest.TestCase):
@@ -101,8 +113,7 @@ class Compare(unittest.TestCase):
         older = summary(self.now - timedelta(days=1), 0.8366, 35, [("Image", 0.5), ("Script", 0.2)])
         newer = summary(self.now, 0.1421, 88, [("Script", 0.1), ("Css", 0.02)])
         result = compare_audits(newer, older)
-
-        self.assertEqual(result["older"]["id"], older.id)
+        self.assertEqual(result["older"].id, older.id)
         self.assertEqual(result["verdict"], "better")
         self.assertEqual(result["summary"], "Audit B emits 83% less CO₂ per visit than Audit A.")
         rows = {r["key"]: r for r in result["metrics"]}
@@ -117,7 +128,3 @@ class Compare(unittest.TestCase):
         result = compare_audits(a, a)
         self.assertEqual(result["verdict"], "same")
         self.assertTrue(all(r["verdict"] == "same" for r in result["metrics"]))
-
-
-if __name__ == "__main__":
-    unittest.main()
