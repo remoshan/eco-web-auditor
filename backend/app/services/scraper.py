@@ -1,11 +1,12 @@
 """Async web scraper: fetches a page's HTML, parses it with BeautifulSoup to
 find external assets, then sizes each one concurrently (HEAD -> Range-GET ->
-skip) before handing everything off to the carbon calculation.
+skip). Every request, including redirect hops, must resolve to a public IP.
 """
 
 import asyncio
+import ipaddress
 import logging
-from typing import Optional
+import re
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -23,7 +24,7 @@ BROWSER_HEADERS: dict[str, str] = {
     ),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
-    "Accept-Encoding": "gzip, deflate, br",
+    "Accept-Encoding": "gzip, deflate",
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
     "Sec-Fetch-Dest": "document",
@@ -31,9 +32,33 @@ BROWSER_HEADERS: dict[str, str] = {
 }
 
 MAX_CONCURRENT_ASSET_REQUESTS: int = 12
+PRELOAD_TYPES = {"font": "font", "script": "script", "style": "css", "image": "image"}
+FONT_URL_PATTERN =re.compile(r"url\(['\"]?(https?://[^'\")\s]+)['\"]?\)")
 
 
-def to_absolute_url(base_url: str, raw_url: str) -> Optional[str]:
+class BlockedURLError(ValueError):
+    pass
+
+
+async def _reject_private_hosts(request: httpx.Request) -> None:
+    # ponytail: DNS is resolved here and again when httpx connects, so a rebinding
+    # server could swap addresses in between; pin the IP in a custom transport if that matters.
+    if settings.ALLOW_PRIVATE_URLS:
+        return
+    host = request.url.host
+    try:
+        infos = await asyncio.get_running_loop().getaddrinfo(host, request.url.port or 443)
+    except OSError:
+        raise BlockedURLError(f"Could not resolve {host}.")
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0].split("%")[0])
+        if getattr(ip, "ipv4_mapped", None):
+            ip = ip.ipv4_mapped
+        if not ip.is_global:
+            raise BlockedURLError(f"{host} points to a private or reserved address and can't be audited.")
+
+
+def to_absolute_url(base_url: str, raw_url: str) -> str | None:
     if not raw_url:
         return None
 
@@ -53,7 +78,7 @@ def to_absolute_url(base_url: str, raw_url: str) -> Optional[str]:
 
 
 def extract_assets_from_html(html: str, base_url: str) -> list[dict]:
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, "html.parser")
     assets: list[dict] = []
     seen_urls: set[str] = set()
 
@@ -68,8 +93,8 @@ def extract_assets_from_html(html: str, base_url: str) -> list[dict]:
             add(src, "image")
         if srcset := tag.get("srcset"):
             for part in srcset.split(","):
-                candidate = part.strip().split()[0]
-                add(candidate, "image")
+                if candidate := part.split():
+                    add(candidate[0], "image")
 
     for tag in soup.find_all("script", src=True):
         add(tag["src"], "script")
@@ -77,7 +102,7 @@ def extract_assets_from_html(html: str, base_url: str) -> list[dict]:
     for tag in soup.find_all("link"):
         rel = tag.get("rel", [])
         if isinstance(rel, str):
-            rel = [rel]
+            rel = rel.split()
         rel_lower = [r.lower() for r in rel]
 
         href = tag.get("href", "")
@@ -85,20 +110,13 @@ def extract_assets_from_html(html: str, base_url: str) -> list[dict]:
 
         if "stylesheet" in rel_lower:
             add(href, "css")
-        elif "preload" in rel_lower and as_attr == "font":
-            add(href, "font")
-        elif "preload" in rel_lower and as_attr in ("script",):
-            add(href, "script")
-        elif "preload" in rel_lower and as_attr in ("style",):
-            add(href, "css")
-        elif "preload" in rel_lower and as_attr in ("image",):
-            add(href, "image")
-        elif any(r in rel_lower for r in ("icon", "shortcut icon", "apple-touch-icon")):
+        elif "preload" in rel_lower and as_attr in PRELOAD_TYPES:
+            add(href, PRELOAD_TYPES[as_attr])
+        elif "icon" in rel_lower or "apple-touch-icon" in rel_lower:
             add(href, "image")
 
     for style_tag in soup.find_all("style"):
-        import re
-        for url_match in re.finditer(r"url\(['\"]?(https?://[^'\")\s]+)['\"]?\)", style_tag.get_text()):
+        for url_match in FONT_URL_PATTERN.finditer(style_tag.get_text()):
             url = url_match.group(1)
             ext = url.split("?")[0].lower()
             if any(ext.endswith(f) for f in (".woff2", ".woff", ".ttf", ".otf", ".eot")):
@@ -157,7 +175,6 @@ async def fetch_asset_info(client: httpx.AsyncClient, asset: dict) -> dict:
         "name": filename,
         "asset_type": refined_type,
         "size_bytes": size_bytes,
-        "content_type": content_type,
     }
 
 
@@ -177,18 +194,22 @@ def _refine_asset_type(guessed_type: str, content_type: str) -> str:
 
 
 async def scrape_page(url: str) -> dict:
-    """
-    Raises ValueError for any network/HTTP-level error (caller converts to a 422).
-    """
+    """Raises ValueError for any network/HTTP-level error (caller converts to a 422)."""
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_ASSET_REQUESTS)
 
-    async with httpx.AsyncClient(verify=True, timeout=settings.SCRAPER_TIMEOUT) as client:
+    async with httpx.AsyncClient(
+        verify=True,
+        timeout=settings.SCRAPER_TIMEOUT,
+        event_hooks={"request": [_reject_private_hosts]},
+    ) as client:
 
         try:
             response = await client.get(
                 url, headers=BROWSER_HEADERS, follow_redirects=True
             )
             response.raise_for_status()
+        except BlockedURLError:
+            raise
         except httpx.HTTPStatusError as exc:
             raise ValueError(
                 f"Server returned HTTP {exc.response.status_code} for {url}."
@@ -221,20 +242,9 @@ async def scrape_page(url: str) -> dict:
             async with semaphore:
                 return await fetch_asset_info(client, asset)
 
-        tasks = [bounded_fetch(a) for a in raw_assets]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        assets = [
-            r
-            for r in results
-            if isinstance(r, dict) and r.get("size_bytes", 0) > 0
-        ]
+        results = await asyncio.gather(*(bounded_fetch(a) for a in raw_assets))
+        assets = [r for r in results if r["size_bytes"] > 0]
 
     logger.info("Sized %d / %d assets successfully.", len(assets), len(raw_assets))
 
-    return {
-        "base_url": base_url,
-        "html_size": html_size,
-        "assets": assets,
-        "total_assets_found": total_found,
-    }
+    return {"html_size": html_size, "assets": assets}

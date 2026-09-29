@@ -7,10 +7,12 @@ CO2 (g) = (data_bytes / 1,000,000,000) × 0.81 kWh/GB × 442 gCO2/kWh
 """
 
 import math
-from typing import Tuple
 
 ENERGY_PER_GB: float = 0.81       # kWh per gigabyte transferred
 CARBON_INTENSITY: float = 442.0   # gCO2 per kWh (global grid average, 2023)
+CAR_GRAMS_PER_KM: float = 150.0   # UK average petrol car
+MONTHLY_VISITS: int = 10_000
+TREE_KG_PER_YEAR: float = 21.0    # CO2 a mature tree absorbs per year
 
 # WebsiteCarbon.com grading methodology. Ordered best to worst; first match wins.
 GRADE_THRESHOLDS: list[tuple[float, str, int]] = [
@@ -21,6 +23,13 @@ GRADE_THRESHOLDS: list[tuple[float, str, int]] = [
     (0.656, "C",  50),
     (0.857, "D",  35),
     (math.inf, "F", 10),
+]
+
+# Lowest score for each rating label. Ordered best to worst; first match wins.
+RATING_THRESHOLDS: list[tuple[int, str]] = [
+    (80, "Sustainable"),
+    (60, "Needs Work"),
+    (0, "High Impact"),
 ]
 
 ASSET_STATUS_THRESHOLDS: dict[str, dict[str, int]] = {
@@ -125,11 +134,12 @@ def calculate_co2_grams(size_bytes: int) -> float:
     return round(co2_grams, 6)
 
 
-def get_grade_and_score(co2_grams: float) -> Tuple[str, int]:
-    for threshold, grade, score in GRADE_THRESHOLDS:
-        if co2_grams <= threshold:
-            return grade, score
-    return "F", 10
+def get_grade_and_score(co2_grams: float) -> tuple[str, int]:
+    return next((grade, score) for threshold, grade, score in GRADE_THRESHOLDS if co2_grams <= threshold)
+
+
+def get_rating(score: int) -> str:
+    return next(label for minimum, label in RATING_THRESHOLDS if score >= minimum)
 
 
 def get_asset_status(asset_type: str, size_bytes: int) -> str:
@@ -149,8 +159,7 @@ def get_optimization_tip(asset_type: str, status: str) -> str:
 
 
 def get_real_world_comparison(co2_grams: float) -> str:
-    """Assumes a UK average petrol car: ~150 gCO2/km."""
-    metres_driven = (co2_grams / 150.0) * 1000.0
+    metres_driven = (co2_grams / CAR_GRAMS_PER_KM) * 1000.0
     if metres_driven >= 1000:
         return f"Equivalent to driving {metres_driven / 1000:.2f} km in a petrol car"
     elif metres_driven >= 1:
@@ -158,13 +167,25 @@ def get_real_world_comparison(co2_grams: float) -> str:
     return "Less than 1 metre driven in a petrol car per page load"
 
 
-def calculate_annual_metrics(co2_per_visit: float, monthly_visits: int = 10_000) -> dict:
-    annual_grams = co2_per_visit * monthly_visits * 12
-    annual_kg = annual_grams / 1000
-    trees_needed = annual_kg / 21.0  # a mature tree absorbs ~21 kg CO2/year
-
+def calculate_annual_metrics(co2_per_visit: float) -> dict:
+    annual_kg = co2_per_visit * MONTHLY_VISITS * 12 / 1000
     return {
-        "annual_grams": round(annual_grams, 2),
-        "annual_kg": round(annual_kg, 3),
-        "trees_to_offset": round(trees_needed, 1),
+        "annual_co2_kg": round(annual_kg, 3),
+        "trees_to_offset": round(annual_kg / TREE_KG_PER_YEAR, 1),
+    }
+
+
+def methodology() -> dict:
+    return {
+        "energy_per_gb": ENERGY_PER_GB,
+        "carbon_intensity": CARBON_INTENSITY,
+        "car_grams_per_km": CAR_GRAMS_PER_KM,
+        "monthly_visits": MONTHLY_VISITS,
+        "tree_kg_per_year": TREE_KG_PER_YEAR,
+        "grades": [
+            {"grade": grade, "max_co2": None if math.isinf(threshold) else threshold, "score": score}
+            for threshold, grade, score in GRADE_THRESHOLDS
+        ],
+        "ratings": [{"min_score": minimum, "label": label} for minimum, label in RATING_THRESHOLDS],
+        "asset_status": ASSET_STATUS_THRESHOLDS,
     }

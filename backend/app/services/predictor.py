@@ -1,99 +1,55 @@
-"""Loads the trained ML model from ml/ and predicts CO2 emissions from
-page-level features, to cross-validate the SWD formula. If no model is
-present, predict_co2() returns None and the API omits the ml_prediction field.
+"""Linear-regression CO2 estimate that cross-validates the SWD formula.
+
+The model was trained with scikit-learn (StandardScaler + LinearRegression) and exported
+to ml/model.json, so a prediction is sum(coef * (x - mean) / scale) + intercept.
 """
 
 import json
-import logging
-import os
-from typing import Optional
+from pathlib import Path
 
-logger = logging.getLogger(__name__)
+AGREEMENT_TOLERANCE_PCT = 15
 
-ML_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "ml")
-MODEL_PATH    = os.path.join(ML_DIR, "model.joblib")
-SCALER_PATH   = os.path.join(ML_DIR, "scaler.joblib")
-FEATURES_PATH = os.path.join(ML_DIR, "feature_columns.json")
-INFO_PATH     = os.path.join(ML_DIR, "model_info.json")
-
-_model = None
-_scaler = None
-_feature_columns: Optional[list[str]] = None
-_model_info: Optional[dict] = None
-_load_attempted = False
+_MODEL = json.loads((Path(__file__).parent.parent / "ml" / "model.json").read_text(encoding="utf-8"))
 
 
-def _load_artifacts() -> bool:
-    global _model, _scaler, _feature_columns, _model_info, _load_attempted
+def build_features(html_size: int, assets: list[dict]) -> dict[str, float]:
+    """Must produce every name in model.json's "features", or predictions become meaningless."""
+    by_type = {t: [a["size_bytes"] / 1024 for a in assets if a["asset_type"] == t]
+               for t in ("image", "script", "css", "font", "media")}
+    all_kb = html_size / 1024 + sum(a["size_bytes"] for a in assets) / 1024
 
-    _load_attempted = True
-
-    if not (os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH)
-            and os.path.exists(FEATURES_PATH)):
-        logger.info(
-            "ML model artifacts not found in %s - "
-            "predictions will be unavailable until scripts/train_model.py is run.",
-            ML_DIR,
-        )
-        return False
-
-    try:
-        import joblib  # imported here so the app doesn't hard-fail if missing
-        _model = joblib.load(MODEL_PATH)
-        _scaler = joblib.load(SCALER_PATH)
-
-        with open(FEATURES_PATH) as f:
-            _feature_columns = json.load(f)
-
-        if os.path.exists(INFO_PATH):
-            with open(INFO_PATH) as f:
-                _model_info = json.load(f)
-
-        logger.info(
-            "Loaded ML model '%s' (R2=%.4f, %d features)",
-            _model_info.get("model_name", "unknown") if _model_info else "unknown",
-            _model_info.get("r2_score", 0.0) if _model_info else 0.0,
-            len(_feature_columns),
-        )
-        return True
-
-    except Exception as exc:
-        logger.warning("Failed to load ML model artifacts: %s", exc)
-        return False
+    features: dict[str, float] = {
+        "html_size_kb": round(html_size / 1024, 2),
+        "total_assets": len(assets),
+        "max_single_asset_kb": round(max((a["size_bytes"] for a in assets), default=0) / 1024, 2),
+    }
+    for t, sizes in by_type.items():
+        features[f"{t}_count"] = len(sizes)
+        features[f"{t}_total_kb"] = round(sum(sizes), 2)
+        features[f"{t}_avg_kb"] = round(sum(sizes) / len(sizes), 2) if sizes else 0
+        features[f"max_{t}_kb"] = round(max(sizes, default=0), 2)
+    for status in ("red", "amber", "green"):
+        features[f"{status}_asset_count"] = sum(1 for a in assets if a["status"] == status)
+    for t in ("image", "script"):
+        features[f"{t}_pct_of_weight"] = round(sum(by_type[t]) / max(all_kb, 1) * 100, 1)
+    return features
 
 
-def is_available() -> bool:
-    if not _load_attempted:
-        _load_artifacts()
-    return _model is not None
+def predict_co2(features: dict[str, float]) -> float:
+    total = _MODEL["intercept"] + sum(
+        coef * (features[name] - mean) / scale
+        for name, coef, mean, scale in zip(_MODEL["features"], _MODEL["coef"], _MODEL["mean"], _MODEL["scale"])
+    )
+    return round(max(0.0, total), 6)
 
 
-def get_model_info() -> Optional[dict]:
-    if not _load_attempted:
-        _load_artifacts()
-    return _model_info
-
-
-def build_feature_vector(audit_features: dict) -> Optional[list[float]]:
-    if not is_available():
-        return None
-    return [float(audit_features.get(col, 0) or 0) for col in _feature_columns]
-
-
-def predict_co2(audit_features: dict) -> Optional[dict]:
-    if not is_available():
-        return None
-
-    try:
-        vector = build_feature_vector(audit_features)
-        scaled = _scaler.transform([vector])
-        prediction = max(0.0, float(_model.predict(scaled)[0]))
-
-        return {
-            "predicted_co2_grams": round(prediction, 6),
-            "model_name": _model_info.get("model_name", "unknown") if _model_info else "unknown",
-            "r2_score": round(_model_info.get("r2_score", 0.0), 4) if _model_info else None,
-        }
-    except Exception as exc:
-        logger.warning("ML prediction failed: %s", exc)
-        return None
+def model_info() -> dict:
+    return {
+        "model_name": _MODEL["model_name"],
+        "r2_score": round(_MODEL["r2_score"], 4),
+        "mae": _MODEL["mae"],
+        "rmse": _MODEL["rmse"],
+        "n_samples": _MODEL["n_samples"],
+        "n_features": len(_MODEL["features"]),
+        "agreement_tolerance_pct": AGREEMENT_TOLERANCE_PCT,
+    }
