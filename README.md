@@ -92,21 +92,25 @@ sequenceDiagram
     participant A as FastAPI
     participant S as Scraper
     participant W as Target site
+    participant G as Green Web Foundation
 
     B->>A: POST /api/audit { "url": "python.org" }
     A->>A: normalise to https://python.org/ · rate-limit check
-    A->>S: scrape_page(url)
-    S->>S: resolve host, reject private IPs
-    S->>W: GET page HTML
-    S->>S: parse img, script, link, @font-face
-    par up to 12 concurrent
-        S->>W: HEAD asset (Range GET fallback)
+    A->>A: cached in the last 10 min? return it
+    par
+        A->>G: green hosting lookup
+    and
+        A->>S: scrape_page(url)
+        S->>S: resolve host, reject private IPs
+        S->>W: GET page HTML
+        S->>S: parse img, script, link, @font-face
+        S->>W: HEAD each asset, 12 at a time (Range GET fallback)
+        S-->>A: html size + sized assets
     end
-    S-->>A: html size + sized assets
-    A->>A: CO₂ per asset → status → tip
-    A->>A: total CO₂ → grade, score, rating
+    A->>A: CO₂ per asset → status → tip → potential saving
+    A->>A: total CO₂ → grade, score, rating · potential grade
     A->>A: group by type · ML cross-check
-    A-->>B: 200 { id, grade, assets, ml_prediction, … }
+    A-->>B: 200 { id, grade, assets, potential, green_hosting, … }
     B->>B: save to IndexedDB · route to /audits/:id
 ```
 
@@ -226,8 +230,11 @@ Interactive documentation is served at **http://localhost:8000/docs**.
 Audits a page. The scheme is optional, so `python.org` becomes `https://python.org/`.
 
 ```json
-{ "url": "example.com" }
+{ "url": "example.com", "refresh": false }
 ```
+
+A URL audited in the last 10 minutes is answered from a short-lived cache with the same
+`id` and `audited_at`. Send `"refresh": true` to force a new scan.
 
 Responds `200 OK` (arrays shortened):
 
@@ -256,6 +263,7 @@ Responds `200 OK` (arrays shortened):
       "asset_type": "script",
       "size_bytes": 2153,
       "co2_grams": 0.000771,
+      "saving_co2_grams": 0.0,
       "status": "green",
       "optimization_tip": "Script is well-sized. Ensure it is deferred if non-critical and served with Brotli compression for best transfer efficiency."
     }
@@ -266,13 +274,20 @@ Responds `200 OK` (arrays shortened):
     "r2_score": 0.9964,
     "difference_pct": 0.1,
     "agreement": "close"
-  }
+  },
+  "potential": { "total_co2": 0.001, "grade": "A+", "score": 96, "saving_pct": 0.0 },
+  "green_hosting": { "green": true, "hosted_by": "Cloudflare" }
 }
 ```
 
 Assets are sorted by CO₂, heaviest first. `status` is `green`, `amber` or `red` against
 per-type size thresholds. `agreement` is `close` when the ML estimate lands within ±15%
 of the SWD figure, and `divergent` otherwise.
+
+`saving_co2_grams` estimates what fixing an asset would save, and `potential` is the page
+after every flagged asset is fixed (see [Potential savings](#potential-savings)).
+`green_hosting` comes from The Green Web Foundation and is `null` when the lookup fails. It
+is informational only and never changes the grade.
 
 The server does not store the result. The frontend saves it to IndexedDB and the `id`
 becomes the `/audits/:id` route.
@@ -313,8 +328,8 @@ compare against.
 
 ### `GET /api/methodology`
 
-Returns the SWD constants, the grade and rating thresholds, the asset-status thresholds and
-the ML model's evaluation metrics, read straight from the code. The About page renders
+Returns the SWD constants, the grade and rating thresholds, the asset-status thresholds,
+the savings rates and the ML model's evaluation metrics, read straight from the code. The About page renders
 its formula and grade scale from this endpoint, so the documentation can't drift from
 the implementation.
 
@@ -351,6 +366,21 @@ maps to a grade:
 Annual figures assume 10,000 visits a month. The real-world comparison uses a petrol car
 at 150 gCO₂/km, and the tree offset assumes 21 kg of CO₂ absorbed per tree per year.
 
+### Potential savings
+
+Every amber or red asset is given an estimated reduction, matching the fix its tip
+recommends. The page's potential grade is the SWD grade after all of those reductions.
+
+| Asset | Amber | Red | Based on |
+|---|---|---|---|
+| Image | 70% | 70% | WebP or AVIF conversion |
+| Script | 30% | 50% | Minification, tree-shaking and code-splitting |
+| CSS | 50% | 80% | Removing unused rules |
+| Font | 50% | 70% | Subsetting and WOFF2 |
+| Media | 30% | 40% | Modern codecs |
+
+Well-sized (green) assets are assumed to have nothing left to save.
+
 ### ML cross-validation
 
 A linear regression model, trained on 63 real audits with 24 element-level features
@@ -380,7 +410,7 @@ python -m unittest discover tests
 ```
 
 ```
-Ran 13 tests in 0.040s
+Ran 16 tests in 0.228s
 
 OK
 ```
@@ -392,7 +422,10 @@ The tests cover:
 - Grade and rating boundaries
 - Compare ordering and verdicts
 - ML model parity with the original scikit-learn predictions
-- A full audit pipeline run validated against the response schema
+- A full audit pipeline run validated against the response schema, including savings and
+  the potential grade
+- The green hosting lookup, including failure returning "unknown"
+- The audit cache, and `refresh` bypassing it
 
 ### A real audit
 
@@ -407,6 +440,8 @@ total_co2      0.1422 g per visit
 page weight    0.38 MB across 15 requests
 categories     Css 39.9% · Script 38.4% · Image 8.4%
 ml_prediction  0.142191 g  (difference 0.0%, agreement: close)
+potential      0.0953 g, still grade A (32.9% of the page weight is savable)
+green_hosting  not verified green
 ```
 
 ### Private addresses are refused
@@ -464,6 +499,19 @@ privately is silently skipped rather than failing the whole audit.
 Audits are limited per client IP with a sliding one-minute window held in memory. The
 client IP comes from the first `X-Forwarded-For` entry set by the hosting proxy. Stale
 entries are swept once more than 1,000 IPs are tracked, so memory stays bounded.
+
+### Short-lived audit cache
+
+Results are cached in memory per URL for 10 minutes, capped at 100 entries with the oldest
+evicted first. Repeat audits return instantly and audited sites aren't scanned again for
+nothing. The cached result keeps its original `id` and `audited_at`, so it is honest about
+when the scan ran.
+
+### Green hosting lookup
+
+The audited hostname is sent to The Green Web Foundation's public greencheck API while the
+page is being scraped, so the lookup adds no time. It has its own 5-second timeout and any
+failure is reported as unknown rather than failing the audit.
 
 ### ML model as JSON
 
@@ -561,8 +609,11 @@ on a one-byte range request. Servers that send neither are left out of the total
 again when connecting. A malicious DNS server could change the answer in between. Pinning
 the resolved IP in a custom transport would close the gap.
 
-**Rate limit is per process.** It resets on restart, and a client can spoof the first
-`X-Forwarded-For` entry. Moving the limit to Redis or the edge proxy would fix both.
+**Rate limit and cache are per process.** Both reset on restart, and a client can spoof the
+first `X-Forwarded-For` entry. Moving them to Redis or the edge proxy would fix both.
+
+**Savings are estimates.** Reductions use typical figures for each fix, not a re-encoding of
+the actual file.
 
 **History is per browser.** No accounts means no cross-device sync, and clearing site
 data removes the history. That is the accepted cost of storing nothing on the server.

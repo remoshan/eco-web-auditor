@@ -6,11 +6,12 @@ from unittest.mock import AsyncMock, patch
 import httpx
 from pydantic import ValidationError
 
+from app import routes
 from app.schemas import AuditRequest, AuditResponse, AuditSummary
 from app.services import carbon, predictor
 from app.services.audit import run_audit
 from app.services.compare import compare_audits
-from app.services.scraper import BlockedURLError, extract_assets, reject_private_hosts
+from app.services.scraper import BlockedURLError, check_green_hosting, extract_assets, reject_private_hosts
 
 
 class UrlNormalisation(unittest.TestCase):
@@ -91,12 +92,42 @@ class Pipeline(unittest.TestCase):
             {"url": "https://x.test/a.js", "name": "a.js", "asset_type": "script", "size_bytes": 20_000},
             {"url": "https://x.test/a.png", "name": "a.png", "asset_type": "image", "size_bytes": 400_000},
         ]}
-        with patch("app.services.audit.scrape_page", AsyncMock(return_value=scraped)):
+        green = {"green": True, "hosted_by": "Host"}
+        with patch("app.services.audit.scrape_page", AsyncMock(return_value=scraped)),                 patch("app.services.audit.check_green_hosting", AsyncMock(return_value=green)):
             result = AuditResponse.model_validate(asyncio.run(run_audit("https://x.test/")))
         self.assertEqual(result.total_bytes, 470_000)
         self.assertEqual([a.status for a in result.assets], ["red", "green"])
         self.assertEqual([(c.name, c.percentage) for c in result.categories], [("Image", 85.1), ("Script", 4.3)])
         self.assertIn(result.ml_prediction.agreement, ("close", "divergent"))
+        self.assertEqual([a.saving_co2_grams for a in result.assets], [carbon.calculate_co2_grams(280_000), 0.0])
+        self.assertEqual((result.grade, result.potential.grade, result.potential.saving_pct), ("A", "A+", 59.6))
+        self.assertTrue(result.green_hosting.green)
+
+
+class GreenHosting(unittest.TestCase):
+    def lookup(self, **mock):
+        with patch("app.services.scraper.httpx.AsyncClient.get", AsyncMock(**mock)):
+            return asyncio.run(check_green_hosting("https://www.example.com/page"))
+
+    def test_reads_green_status(self):
+        response = httpx.Response(200, json={"green": True, "hosted_by": "Cloudflare"},
+                                  request=httpx.Request("GET", "https://x.test"))
+        self.assertEqual(self.lookup(return_value=response), {"green": True, "hosted_by": "Cloudflare"})
+
+    def test_failure_is_unknown_not_an_error(self):
+        self.assertIsNone(self.lookup(side_effect=httpx.ConnectError("down")))
+
+
+class AuditCache(unittest.TestCase):
+    def test_reuses_result_until_refresh(self):
+        routes._cache.clear()
+        fake = AsyncMock(side_effect=lambda url: {"id": str(fake.await_count), "grade": "A", "total_co2": 0.1,
+                                                  "request_count": 1})
+        with patch("app.routes.run_audit", fake):
+            first = asyncio.run(routes.audit(AuditRequest(url="python.org")))
+            again = asyncio.run(routes.audit(AuditRequest(url="https://python.org/")))
+            fresh = asyncio.run(routes.audit(AuditRequest(url="python.org", refresh=True)))
+        self.assertEqual((first["id"], again["id"], fresh["id"], fake.await_count), ("1", "1", "2", 2))
 
 
 def summary(when, co2, score, categories):

@@ -16,6 +16,13 @@ ASSET_STATUS_THRESHOLDS = {
     "font": {"green": 50_000, "amber": 150_000},
     "media": {"green": 500_000, "amber": 2_000_000},
 }
+SAVINGS_RATES = {
+    "image": {"green": 0.0, "amber": 0.7, "red": 0.7},
+    "script": {"green": 0.0, "amber": 0.3, "red": 0.5},
+    "css": {"green": 0.0, "amber": 0.5, "red": 0.8},
+    "font": {"green": 0.0, "amber": 0.5, "red": 0.7},
+    "media": {"green": 0.0, "amber": 0.3, "red": 0.4},
+}
 OPTIMIZATION_TIPS = {
     "image": {
         "red": "Large image detected. Convert to WebP or AVIF (saves 60–85% size). Add loading='lazy' for below-the-fold images and use srcset for responsive images to avoid serving oversized files to mobile users.",
@@ -86,4 +93,5 @@ def methodology() -> dict:
         "grades": [{"grade": g, "max_co2": None if math.isinf(t) else t, "score": s} for t, g, s in GRADE_THRESHOLDS],
         "ratings": [{"min_score": m, "label": label} for m, label in RATING_THRESHOLDS],
         "asset_status": ASSET_STATUS_THRESHOLDS,
+        "savings_rates": SAVINGS_RATES,
     }

@@ -12,7 +12,10 @@ from app.services.compare import compare_audits
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Audit"])
 WINDOW_SECONDS = 60
+CACHE_SECONDS = 600
+CACHE_SIZE = 100
 _hits: dict[str, list[float]] = {}
+_cache: dict[str, tuple[float, dict]] = {}
 
 
 def rate_limit(request: Request) -> None:
@@ -31,6 +34,9 @@ def rate_limit(request: Request) -> None:
 @router.post("/audit", response_model=AuditResponse, dependencies=[Depends(rate_limit)])
 async def audit(request: AuditRequest):
     url = str(request.url)
+    cached = _cache.get(url)
+    if cached and not request.refresh and cached[0] > time.monotonic():
+        return cached[1]
     try:
         result = await run_audit(url)
     except ValueError as exc:
@@ -40,6 +46,10 @@ async def audit(request: AuditRequest):
         raise HTTPException(500, "An unexpected error occurred while scraping the page.")
     logger.info("Audited %s  grade=%s  co2=%.4fg  assets=%d", url, result["grade"], result["total_co2"],
                 result["request_count"])
+    _cache.pop(url, None)
+    _cache[url] = (time.monotonic() + CACHE_SECONDS, result)
+    if len(_cache) > CACHE_SIZE:
+        del _cache[next(iter(_cache))]
     return result
 
 
