@@ -9,6 +9,7 @@ with an independently trained regression model.
 ## Table of contents
 
 - [The problem](#the-problem)
+- [Features](#features)
 - [Architecture](#architecture)
 - [Audit pipeline](#audit-pipeline)
 - [Tech stack](#tech-stack)
@@ -44,6 +45,23 @@ EcoWeb Auditor prices each asset separately:
 
 Primary research (n = 31 IT and software engineering professionals and students) found
 that **90.3%** would use a tool with this element-level breakdown.
+
+---
+
+## Features
+
+- **Element-level breakdown.** Every image, script, stylesheet and font is priced in CO₂,
+  ranked, and given a concrete fix.
+- **Potential savings.** Shows how much each fix would save and the grade the page would
+  reach once the flagged assets are fixed.
+- **Green hosting check.** Shows whether the site's host runs on renewable energy, via The
+  Green Web Foundation.
+- **ML cross-check.** An independently trained regression model verifies the SWD figure.
+- **History, re-audit and trends.** Audits are saved in your browser. Run one again with a
+  click, and see a CO₂ trend line once a site has been audited more than once.
+- **Compare.** Put two audits side by side, with per-metric and per-asset-type changes.
+- **Export.** Save a report as PDF (print-friendly layout) or JSON, and export or import your
+  whole history to move it between devices.
 
 ---
 
@@ -473,6 +491,11 @@ retry-after: 60
 
 Checked at 375 px, 768 px and 1280 px in both themes:
 - Auditing a site, reopening it from history, and refreshing on `/audits/:id`
+- The savings card, per-asset savings and the green hosting pill
+- "Run again" forcing a fresh scan, and the trend line appearing for the second audit
+- Downloading JSON, and exporting, clearing and re-importing history (re-imports don't
+  duplicate, and files older than 7 days or the wrong shape are rejected clearly)
+- Opening audits saved before these features existed
 - Comparing two audits and the About page
 - Empty and error states
 
@@ -536,8 +559,12 @@ Pydantic's structured error arrays are replaced by a single sentence, such as
 
 IndexedDB holds a small **index** (id, url, grade, CO₂, date) under one key, and each full
 report under its own key. The history list only ever reads the index, and a full report is
-loaded only when it is opened. On every write, entries older than seven days and beyond
-fifty are pruned along with their reports.
+loaded only when it is opened. On every write, entries are sorted by date, de-duplicated by
+`id`, and those older than seven days or beyond fifty are pruned along with their reports.
+
+Saving, re-auditing and importing all go through the same code path, so a cached re-audit or
+a re-imported file never creates duplicate rows. An imported file is checked for the fields
+a report needs before anything is written.
 
 ### Contract-first frontend
 
@@ -615,8 +642,9 @@ first `X-Forwarded-For` entry. Moving them to Redis or the edge proxy would fix 
 **Savings are estimates.** Reductions use typical figures for each fix, not a re-encoding of
 the actual file.
 
-**History is per browser.** No accounts means no cross-device sync, and clearing site
-data removes the history. That is the accepted cost of storing nothing on the server.
+**History is per browser.** No accounts means no automatic sync, and clearing site data
+removes the history. Export and import move it between devices by hand. That is the accepted
+cost of storing nothing on the server.
 
 **Simulated progress.** The loading steps advance on a timer rather than reporting real
 scan progress. Server-Sent Events would make them truthful.

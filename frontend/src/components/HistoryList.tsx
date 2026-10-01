@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { clearHistory, listHistory, type HistoryEntry } from "../history";
+import { clearHistory, exportHistory, importHistory, listHistory, type HistoryEntry } from "../history";
 import { formatCO2, formatDate, gradeColor } from "../format";
 
 export default function HistoryList() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -29,6 +31,19 @@ export default function HistoryList() {
     setSelected([]);
   }
 
+  async function importFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const count = await importHistory(JSON.parse(await file.text()));
+      setEntries(await listHistory());
+      setNotice(`Imported ${count} audit${count === 1 ? "" : "s"}. Audits older than 7 days are skipped.`);
+    } catch (err) {
+      setNotice(err instanceof SyntaxError ? "That file isn't valid JSON." : (err as Error).message);
+    }
+  }
+
   if (entries === null) return null;
 
   return (
@@ -39,23 +54,29 @@ export default function HistoryList() {
             <div className="section-label">Audit History</div>
             <h2 className="recent-title">Recent Audits</h2>
             <p className="recent-sub">
-              {entries.length
-                ? "Saved in this browser for 7 days. Open one, or tick two to compare them."
-                : "No audits yet. Run your first one above!"}
+              {notice ??
+                (entries.length
+                  ? "Saved in this browser for 7 days. Open one, or tick two to compare them."
+                  : "No audits yet. Run your first one above, or import a history file.")}
             </p>
           </div>
-          {entries.length > 0 && (
-            <div className="recent-actions">
-              <button className="btn btn-ghost" onClick={clear}>Clear history</button>
-              <button
-                className="btn btn-primary"
-                disabled={selected.length !== 2}
-                onClick={() => navigate(`/compare/${selected[0]}/${selected[1]}`)}
-              >
-                Compare ({selected.length}/2)
-              </button>
-            </div>
-          )}
+          <div className="recent-actions">
+            <input ref={fileInput} type="file" accept="application/json,.json" hidden onChange={importFile} />
+            <button className="btn btn-ghost" onClick={() => fileInput.current?.click()}>Import</button>
+            {entries.length > 0 && (
+              <>
+                <button className="btn btn-ghost" onClick={exportHistory}>Export</button>
+                <button className="btn btn-ghost" onClick={clear}>Clear history</button>
+                <button
+                  className="btn btn-primary"
+                  disabled={selected.length !== 2}
+                  onClick={() => navigate(`/compare/${selected[0]}/${selected[1]}`)}
+                >
+                  Compare ({selected.length}/2)
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="recent-grid">

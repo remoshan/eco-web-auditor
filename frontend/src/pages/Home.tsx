@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { runAudit } from "../api";
 import { saveAudit } from "../history";
 import HistoryList from "../components/HistoryList";
@@ -15,6 +15,7 @@ const LOADING_STEPS = [
 
 export default function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [url, setUrl] = useState("");
   const [scanning, setScanning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,23 +36,33 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [shake]);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    const target = url.trim();
-    if (!target) return setShake(true);
+  useEffect(() => {
+    const rerun = (location.state as { rerun?: string } | null)?.rerun;
+    if (!rerun) return;
+    navigate(".", { replace: true, state: null });
+    start(rerun, true);
+  }, []);
 
-    abort.current = new AbortController();
+  async function start(target: string, refresh = false) {
+    const controller = new AbortController();
+    abort.current = controller;
     setError(null);
     setScanning(target);
     try {
-      const audit = await runAudit(target, abort.current.signal);
+      const audit = await runAudit(target, refresh, controller.signal);
       await saveAudit(audit);
       navigate(`/audits/${audit.id}`);
     } catch (err) {
-      if (abort.current.signal.aborted) return;
+      if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
       setScanning(null);
     }
+  }
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    if (url.trim()) start(url.trim());
+    else setShake(true);
   }
 
   if (scanning) return <Loading url={scanning} />;
