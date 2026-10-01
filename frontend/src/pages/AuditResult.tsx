@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import type { Asset, Audit } from "../api";
-import { loadAudit } from "../history";
-import { STATUS_COLOR, TYPE_META, formatBytes, formatCO2, gradeColor } from "../format";
+import { downloadJson, listHistory, loadAudit, type HistoryEntry } from "../history";
+import { STATUS_COLOR, TYPE_META, formatBytes, formatCO2, formatDate, gradeColor } from "../format";
 import { BarChart, PieChart } from "../components/Charts";
 import { BackButton, Missing } from "../App";
 
 export default function AuditResult() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const [audit, setAudit] = useState<Audit | null | undefined>(undefined);
 
   useEffect(() => {
@@ -34,9 +35,24 @@ export default function AuditResult() {
               Results for <span>{audit.url}</span>
             </div>
           </div>
-          <div className="grade-pill" style={{ background: `${col}18`, border: `1px solid ${col}40`, color: col }}>
-            {audit.grade} Grade
+          <div className="results-badges">
+            {audit.green_hosting && (
+              <a className={`host-pill${audit.green_hosting.green ? " green" : ""}`} href="https://www.thegreenwebfoundation.org/" target="_blank" rel="noreferrer">
+                {audit.green_hosting.green ? `Green host${audit.green_hosting.hosted_by ? ` · ${audit.green_hosting.hosted_by}` : ""}` : "Not verified green"}
+              </a>
+            )}
+            <div className="grade-pill" style={{ background: `${col}18`, border: `1px solid ${col}40`, color: col }}>
+              {audit.grade} Grade
+            </div>
           </div>
+        </div>
+
+        <div className="results-actions">
+          <button className="btn btn-ghost btn-small" onClick={() => navigate("/", { state: { rerun: audit.url } })}>Run again</button>
+          <button className="btn btn-ghost btn-small" onClick={() => window.print()}>Download PDF</button>
+          <button className="btn btn-ghost btn-small" onClick={() => downloadJson(`ecoweb-audit-${new URL(audit.url).hostname}.json`, audit)}>
+            Download JSON
+          </button>
         </div>
 
         <div className="bento-row-1">
@@ -77,6 +93,8 @@ export default function AuditResult() {
           </div>
         )}
 
+        <SavingsCard audit={audit} />
+        <Trend url={audit.url} currentId={audit.id} />
         <MLCard audit={audit} />
         <AssetList assets={audit.assets} />
       </div>
@@ -110,12 +128,12 @@ function MLCard({ audit }: { audit: Audit }) {
   const ml = audit.ml_prediction;
   const diff = ml.difference_pct;
   return (
-    <div className="card ml-card">
-      <div className="ml-text">
+    <div className="card split-card">
+      <div className="split-text">
         <div className="chart-title">
           ML Model Cross-Validation <span className="badge badge-green">Research Component</span>
         </div>
-        <p className="ml-desc">
+        <p className="split-desc">
           An independently trained <b>{ml.model_name}</b> regression model (R² = <b>{ml.r2_score.toFixed(4)}</b>)
           predicts <strong className="green">{formatCO2(ml.predicted_co2_grams)}</strong> CO₂ for this page based on its
           element-level features — a difference of{" "}
@@ -125,19 +143,91 @@ function MLCard({ audit }: { audit: Audit }) {
           from the SWD formula result.
         </p>
       </div>
-      <div className="ml-versus">
+      <div className="versus">
         <div className="section-label">SWD vs ML</div>
-        <div className="ml-values">
+        <div className="versus-values">
           <div>
-            <div className="ml-value">{formatCO2(audit.total_co2)}</div>
-            <div className="ml-caption">SWD formula</div>
+            <div className="versus-value">{formatCO2(audit.total_co2)}</div>
+            <div className="versus-caption">SWD formula</div>
           </div>
-          <div className="ml-vs">vs</div>
+          <div className="versus-vs">vs</div>
           <div>
-            <div className="ml-value green">{formatCO2(ml.predicted_co2_grams)}</div>
-            <div className="ml-caption">ML model</div>
+            <div className="versus-value green">{formatCO2(ml.predicted_co2_grams)}</div>
+            <div className="versus-caption">ML model</div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SavingsCard({ audit }: { audit: Audit }) {
+  const p = audit.potential;
+  if (!p) return null;
+  return (
+    <div className="card split-card">
+      <div className="split-text">
+        <div className="chart-title">Potential savings</div>
+        <p className="split-desc">
+          {p.saving_pct > 0 ? (
+            <>
+              Fixing the flagged assets could cut <strong>{p.saving_pct}%</strong> of the page weight, saving{" "}
+              <strong className="green">{formatCO2(audit.total_co2 - p.total_co2)}</strong> CO₂ per visit
+              {p.grade === audit.grade ? `. The grade would stay ${p.grade}.` : <> and lifting the grade from <b>{audit.grade}</b> to <b>{p.grade}</b>.</>}
+            </>
+          ) : (
+            "Every asset is already well-sized, so there is nothing flagged to fix."
+          )}
+        </p>
+      </div>
+      <div className="versus">
+        <div className="section-label">Now vs fixed</div>
+        <div className="versus-values">
+          <div>
+            <div className="versus-value" style={{ color: gradeColor(audit.grade) }}>{audit.grade}</div>
+            <div className="versus-caption">{formatCO2(audit.total_co2)}</div>
+          </div>
+          <div className="versus-vs">→</div>
+          <div>
+            <div className="versus-value" style={{ color: gradeColor(p.grade) }}>{p.grade}</div>
+            <div className="versus-caption">{formatCO2(p.total_co2)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Trend({ url, currentId }: { url: string; currentId: string }) {
+  const [points, setPoints] = useState<HistoryEntry[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    listHistory().then((list) => active && setPoints(list.filter((e) => e.url === url).reverse()));
+    return () => {
+      active = false;
+    };
+  }, [url, currentId]);
+
+  if (points.length < 2) return null;
+  const values = points.map((p) => p.total_co2);
+  const min = Math.min(...values);
+  const range = Math.max(...values) - min || 1;
+  const xy = values.map((v, i) => ({ x: `${2 + (i / (values.length - 1)) * 96}%`, y: 56 - ((v - min) / range) * 48 }));
+  const first = points[0];
+  const last = points[points.length - 1];
+
+  return (
+    <div className="card trend-card">
+      <div className="chart-title">CO₂ over time for this site</div>
+      <svg className="trend-chart" role="img" aria-label={`CO₂ across ${points.length} audits of ${url}`}>
+        {xy.slice(1).map((p, i) => <line key={points[i].id} x1={xy[i].x} y1={xy[i].y} x2={p.x} y2={p.y} />)}
+        {xy.map((p, i) => <circle key={points[i].id} cx={p.x} cy={p.y} r={points[i].id === currentId ? 4.5 : 3} />)}
+      </svg>
+      <div className="trend-foot">
+        <span>{formatDate(first.audited_at)} · {formatCO2(first.total_co2)}</span>
+        <span>{points.length} audits in the last 7 days</span>
+        <span>{formatDate(last.audited_at)} · {formatCO2(last.total_co2)}</span>
       </div>
     </div>
   );
@@ -200,15 +290,16 @@ function AssetList({ assets }: { assets: Asset[] }) {
                   </svg>
                 </span>
               </button>
-              {isOpen && (
-                <div className="asset-tip">
-                  <svg className="tip-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                    <circle cx="7" cy="7" r="5.5" stroke={col} strokeWidth="1.2" />
-                    <path d="M7 5v2.5M7 9.5v.1" stroke={col} strokeWidth="1.2" strokeLinecap="round" />
-                  </svg>
-                  <span className="tip-text">{a.optimization_tip}</span>
-                </div>
-              )}
+              <div className="asset-tip">
+                <svg className="tip-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <circle cx="7" cy="7" r="5.5" stroke={col} strokeWidth="1.2" />
+                  <path d="M7 5v2.5M7 9.5v.1" stroke={col} strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+                <span className="tip-text">
+                  {a.optimization_tip}
+                  {a.saving_co2_grams > 0 && <strong className="tip-saving"> Could save ≈ {formatCO2(a.saving_co2_grams)} CO₂ per visit.</strong>}
+                </span>
+              </div>
             </div>
           );
         })}

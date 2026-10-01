@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 
 from app.config import settings
 
+GREEN_CHECK_URL = "https://api.thegreenwebfoundation.org/api/v3/greencheck/"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -82,6 +83,14 @@ async def size_asset(client: httpx.AsyncClient, url: str, asset_type: str) -> di
     asset_type = next((kind for key, kind in CONTENT_TYPES if key in content_type), asset_type)
     return {"url": url, "name": urlparse(url).path.rstrip("/").split("/")[-1] or "unknown", "asset_type": asset_type,
             "size_bytes": size}
+
+
+async def check_green_hosting(url: str) -> dict | None:
+    with contextlib.suppress(Exception):
+        async with httpx.AsyncClient(timeout=5) as client:
+            data = (await client.get(GREEN_CHECK_URL + urlparse(url).hostname)).raise_for_status().json()
+            return {"green": bool(data["green"]), "hosted_by": data.get("hosted_by")}
+    return None
 
 
 async def scrape_page(url: str) -> dict:

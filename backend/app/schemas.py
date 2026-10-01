@@ -8,6 +8,7 @@ Verdict = Literal["better", "worse", "same"]
 
 class AuditRequest(BaseModel):
     url: HttpUrl = Field(examples=["python.org"])
+    refresh: bool = False
 
     @field_validator("url", mode="before")
     @classmethod
@@ -23,6 +24,7 @@ class AssetInfo(BaseModel):
     asset_type: Literal["image", "script", "css", "font", "media"]
     size_bytes: int
     co2_grams: float
+    saving_co2_grams: float
     status: Literal["green", "amber", "red"]
     optimization_tip: str
 
@@ -41,6 +43,18 @@ class MLPrediction(BaseModel):
     r2_score: float
     difference_pct: float | None
     agreement: Literal["close", "divergent"] | None
+
+
+class Potential(BaseModel):
+    total_co2: float
+    grade: str
+    score: int
+    saving_pct: float
+
+
+class GreenHosting(BaseModel):
+    green: bool
+    hosted_by: str | None
 
 
 class CompareSide(BaseModel):
@@ -66,6 +80,8 @@ class AuditResponse(AuditSummary):
     comparison: str
     assets: list[AssetInfo]
     ml_prediction: MLPrediction
+    potential: Potential
+    green_hosting: GreenHosting | None
 
 
 class CompareRequest(BaseModel):
@@ -122,4 +138,5 @@ class Methodology(BaseModel):
     grades: list[GradeBand]
     ratings: list[RatingBand]
     asset_status: dict[str, dict[str, int]]
+    savings_rates: dict[str, dict[str, float]]
     ml_model: ModelInfo

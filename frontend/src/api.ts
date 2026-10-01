@@ -21,7 +21,8 @@ async function request<T>(path: string, body?: unknown, signal?: AbortSignal): P
   return data as T;
 }
 
-export const runAudit = (url: string, signal?: AbortSignal) => request<Audit>("/api/audit", { url }, signal);
+export const runAudit = (url: string, refresh: boolean, signal?: AbortSignal) =>
+  request<Audit>("/api/audit", { url, refresh }, signal);
 
 export const compareAudits = (a: Audit, b: Audit, signal?: AbortSignal) =>
   request<Comparison>("/api/compare", { a: { ...a, assets: [] }, b: { ...b, assets: [] } }, signal);

@@ -73,11 +73,13 @@ export interface components {
             asset_type: "image" | "script" | "css" | "font" | "media";
             size_bytes: number;
             co2_grams: number;
+            saving_co2_grams: number;
             status: "green" | "amber" | "red";
             optimization_tip: string;
         };
         AuditRequest: {
             url: string;
+            refresh: boolean;
         };
         AuditResponse: {
             id: string;
@@ -96,6 +98,8 @@ export interface components {
             comparison: string;
             assets: components["schemas"]["AssetInfo"][];
             ml_prediction: components["schemas"]["MLPrediction"];
+            potential: components["schemas"]["Potential"];
+            green_hosting: components["schemas"]["GreenHosting"] | null;
         };
         AuditSummary: {
             id: string;
@@ -150,6 +154,10 @@ export interface components {
             max_co2: number | null;
             score: number;
         };
+        GreenHosting: {
+            green: boolean;
+            hosted_by: string | null;
+        };
         HTTPValidationError: {
             detail?: components["schemas"]["ValidationError"][];
         };
@@ -173,6 +181,11 @@ export interface components {
                     [key: string]: number;
                 };
             };
+            savings_rates: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
             ml_model: components["schemas"]["ModelInfo"];
         };
         ModelInfo: {
@@ -183,6 +196,12 @@ export interface components {
             n_samples: number;
             n_features: number;
             agreement_tolerance_pct: number;
+        };
+        Potential: {
+            total_co2: number;
+            grade: string;
+            score: number;
+            saving_pct: number;
         };
         RatingBand: {
             min_score: number;
