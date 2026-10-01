@@ -62,6 +62,8 @@ that **90.3%** would use a tool with this element-level breakdown.
 - **Compare.** Put two audits side by side, with per-metric and per-asset-type changes.
 - **Export.** Save a report as PDF (print-friendly layout) or JSON, and export or import your
   whole history to move it between devices.
+- **Installable and offline.** Install it as an app on phone or desktop. Saved audits open
+  without a connection.
 
 ---
 
@@ -150,6 +152,7 @@ passes through the same private-address guard.
 | Charts | Chart.js 4 | Tree-shaken, only the controllers that are used |
 | History | IndexedDB via `idb-keyval` | About 600 bytes |
 | API types | `openapi-typescript` | Generated from the backend schema |
+| Offline | `vite-plugin-pwa` (Workbox) | Generated service worker and web app manifest |
 
 The backend runs on **Python 3.12–3.14** with six direct dependencies.
 
@@ -205,7 +208,7 @@ printed `Network` address on a phone to test on a real device.
 | `python -m unittest discover tests` | `backend/` | Run the backend unit tests |
 | `npm run dev` | `frontend/` | Dev server with hot reload |
 | `npm run build` | `frontend/` | Type-check, then build the production bundle into `dist/` |
-| `npm run preview` | `frontend/` | Serve the production bundle, still proxied to the local backend |
+| `npm run preview` | `frontend/` | Serve the production bundle, still proxied to the local backend. The service worker only runs here and in production, not in `npm run dev` |
 | `npm run types` | `frontend/` | Regenerate `src/api-types.ts` from the running backend |
 
 ---
@@ -496,6 +499,9 @@ Checked at 375 px, 768 px and 1280 px in both themes:
 - Downloading JSON, and exporting, clearing and re-importing history (re-imports don't
   duplicate, and files older than 7 days or the wrong shape are rejected clearly)
 - Opening audits saved before these features existed
+- With the production bundle (`npm run preview`): the service worker registers and
+  precaches the app, and after stopping both servers a saved audit still opens with its
+  charts, the About page loads, and a new audit shows the offline message
 - Comparing two audits and the About page
 - Empty and error states
 
@@ -582,6 +588,18 @@ the UI silently rendering `undefined`.
 - The first-visit theme follows `prefers-color-scheme`
 - Charts are destroyed when their view unmounts and redrawn when the theme changes
 
+### Installable and offline
+
+`vite-plugin-pwa` generates the web app manifest and a Workbox service worker at build time.
+The service worker precaches the app shell and every route's chunk, about 540 KB, after the
+first page has loaded, so it never slows the first render. Navigations fall back to the
+cached `index.html`, which lets saved audits open offline straight from IndexedDB. API
+calls are never cached.
+
+Updates install automatically on the next visit, and outdated caches are cleaned up. The
+icons, including a full-bleed maskable icon for Android and a touch icon for iOS, were
+generated once from `favicon.svg` and are committed as static files.
+
 ---
 
 ## Project structure
@@ -605,8 +623,9 @@ backend/
 
 frontend/
 ├── index.html               shell + pre-paint theme script
-├── vite.config.ts           dev/preview proxy to the backend
+├── vite.config.ts           dev/preview proxy, PWA manifest and service worker
 ├── vercel.json              build settings, SPA rewrite, legacy redirects
+├── public/                  favicon and app icons
 └── src/
     ├── main.tsx             router with lazy-loaded routes
     ├── App.tsx              layout, navigation, theme
