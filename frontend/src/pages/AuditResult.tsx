@@ -10,6 +10,7 @@ export default function AuditResult() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const [audit, setAudit] = useState<Audit | null | undefined>(undefined);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -25,6 +26,14 @@ export default function AuditResult() {
   if (audit === null) return <Missing text="This audit isn't saved in this browser. It may have expired after 7 days." />;
 
   const col = gradeColor(audit.grade);
+  const link = `${location.origin}/?url=${encodeURIComponent(audit.url)}`;
+  function copyLink() {
+    navigator.clipboard.writeText(link).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }, () => prompt("Copy this link", link));
+  }
+
   return (
     <div className="page">
       <div className="results-inner">
@@ -49,6 +58,7 @@ export default function AuditResult() {
 
         <div className="results-actions">
           <button className="btn btn-ghost btn-small" onClick={() => navigate("/", { state: { rerun: audit.url } })}>Run again</button>
+          <button className="btn btn-ghost btn-small" onClick={copyLink} aria-live="polite">{copied ? "Link copied" : "Copy link"}</button>
           <button className="btn btn-ghost btn-small" onClick={() => window.print()}>Download PDF</button>
           <button className="btn btn-ghost btn-small" onClick={() => downloadJson(`ecoweb-audit-${new URL(audit.url).hostname}.json`, audit)}>
             Download JSON

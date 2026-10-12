@@ -60,6 +60,8 @@ that **90.3%** would use a tool with this element-level breakdown.
 - **History, re-audit and trends.** Audits are saved in your browser. Run one again with a
   click, and see a CO₂ trend line once a site has been audited more than once.
 - **Compare.** Put two audits side by side, with per-metric and per-asset-type changes.
+- **Shareable links.** "Copy link" gives a link like `/?url=python.org` that runs the same
+  audit for whoever opens it, with nothing stored on the server.
 - **Export.** Save a report as PDF (print-friendly layout) or JSON, and export or import your
   whole history to move it between devices.
 - **Installable and offline.** Install it as an app on phone or desktop. Saved audits open
@@ -504,6 +506,8 @@ Checked at 375 px, 768 px and 1280 px in both themes:
 - Auditing a site, reopening it from history, and refreshing on `/audits/:id`
 - The savings card, per-asset savings and the green hosting pill
 - "Run again" forcing a fresh scan, and the trend line appearing for the second audit
+- Opening a copied `/?url=` link reusing the cached report without a duplicate history row,
+  going back without re-auditing, and a blocked URL showing its error with the field filled in
 - Downloading JSON, and exporting, clearing and re-importing history (re-imports don't
   duplicate, and files older than 7 days or the wrong shape are rejected clearly)
 - Opening audits saved before these features existed
@@ -558,6 +562,15 @@ The free Render instance sleeps when idle, and waking it takes up to a minute. T
 pings `/health` as soon as any page loads, so the server is usually awake by the time an audit
 is submitted. If the ping hasn't answered within two seconds, a notice explains the wait
 instead of leaving the loading steps stalled.
+
+### Shareable links without storage
+
+Reports live only in the browser that ran them, so a link to `/audits/:id` means nothing to
+anyone else. A shared link carries the audited URL instead, and opening `/?url=…` starts that
+audit through the normal path, so validation, errors and saving behave exactly as if it had
+been typed in. Within ten minutes the audit cache returns the same report, `id` included;
+after that the link gives a fresh scan. The query string is removed straight away, so going
+back doesn't start the audit again.
 
 ### ML model as JSON
 

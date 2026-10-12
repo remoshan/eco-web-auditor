@@ -48,9 +48,11 @@ export default function Home() {
 
   useEffect(() => {
     const rerun = (location.state as { rerun?: string } | null)?.rerun;
-    if (!rerun) return;
-    navigate(".", { replace: true, state: null });
-    start(rerun, true);
+    const target = rerun ?? new URLSearchParams(location.search).get("url");
+    if (!target) return;
+    navigate("/", { replace: true });
+    setUrl(target);
+    start(target, !!rerun);
   }, []);
 
   async function start(target: string, refresh = false) {

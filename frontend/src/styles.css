@@ -700,7 +700,7 @@ footer {
   .grade-row { gap: 12px; padding: 12px 16px; }
   .grade-range { min-width: 0; font-size: 11px; }
   .recent-actions { width: 100%; }
-  .recent-actions .btn { flex: 1 1 calc(50% - 4px); }
+  .recent-actions .btn, .results-actions .btn { flex: 1 1 calc(50% - 4px); }
 }
 
 @media (max-width: 380px) {
