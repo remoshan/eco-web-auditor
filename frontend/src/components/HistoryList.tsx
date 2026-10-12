@@ -11,13 +11,7 @@ export default function HistoryList() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    let active = true;
-    listHistory()
-      .then((list) => active && setEntries(list))
-      .catch(() => active && setEntries([]));
-    return () => {
-      active = false;
-    };
+    listHistory().then(setEntries, () => setEntries([]));
   }, []);
 
   function toggle(id: string, checked: boolean) {

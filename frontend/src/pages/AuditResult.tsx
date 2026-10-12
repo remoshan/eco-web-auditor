@@ -12,13 +12,7 @@ export default function AuditResult() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    let active = true;
-    loadAudit(id)
-      .then((a) => active && setAudit(a ?? null))
-      .catch(() => active && setAudit(null));
-    return () => {
-      active = false;
-    };
+    loadAudit(id).then((a) => setAudit(a ?? null), () => setAudit(null));
   }, [id]);
 
   if (audit === undefined) return <div className="page" />;
@@ -57,39 +51,30 @@ export default function AuditResult() {
           <button className="btn btn-ghost btn-small" onClick={() => navigate("/", { state: { rerun: audit.url } })}>Run again</button>
           <button className="btn btn-ghost btn-small" onClick={copyLink} aria-live="polite">{copied ? "Link copied" : "Copy link"}</button>
           <button className="btn btn-ghost btn-small" onClick={() => window.print()}>Download PDF</button>
-          <button className="btn btn-ghost btn-small" onClick={() => downloadJson(`ecoweb-audit-${new URL(audit.url).hostname}.json`, audit)}>
-            Download JSON
-          </button>
+          <button className="btn btn-ghost btn-small" onClick={() => downloadJson(`ecoweb-audit-${new URL(audit.url).hostname}.json`, audit)}>Download JSON</button>
         </div>
 
         <div className="metrics">
           <div className="card grade-card">
-            <div className="metric-label">Grade</div>
+            <div className="section-label">Grade</div>
             <div className="grade-big" style={{ color: col }}>{audit.grade}</div>
             <div className="grade-meta">Score {audit.score}/100 · {audit.rating}</div>
             <div className="meter"><div style={{ width: `${audit.score}%`, background: col }} /></div>
           </div>
-          <div className="card metric-card">
-            <div className="metric-label">Per-visit carbon</div>
-            <div>
-              <div className="metric-value">{formatCO2(audit.total_co2)}</div>
-              <div className="metric-unit">CO₂ per page visit</div>
+          {[
+            ["Per-visit carbon", formatCO2(audit.total_co2), "CO₂ per page visit", `${audit.annual_co2_kg} kg CO₂/yr`],
+            ["Page weight", `${audit.page_weight_mb} MB`, "transferred", `${audit.request_count} requests`],
+            ["Real-world equivalent", null, audit.comparison, `${audit.trees_to_offset} trees to offset annually`],
+          ].map(([label, value, unit, foot]) => (
+            <div className="card metric-card" key={label}>
+              <div className="section-label">{label}</div>
+              <div>
+                {value && <div className="metric-value">{value}</div>}
+                <div className={value ? "metric-unit" : "metric-comparison"}>{unit}</div>
+              </div>
+              <div className="metric-foot">{foot}</div>
             </div>
-            <div className="metric-foot">{audit.annual_co2_kg} kg CO₂/yr</div>
-          </div>
-          <div className="card metric-card">
-            <div className="metric-label">Page weight</div>
-            <div>
-              <div className="metric-value">{audit.page_weight_mb} MB</div>
-              <div className="metric-unit">transferred</div>
-            </div>
-            <div className="metric-foot">{audit.request_count} requests</div>
-          </div>
-          <div className="card metric-card">
-            <div className="metric-label">Real-world equivalent</div>
-            <div className="metric-comparison">{audit.comparison}</div>
-            <div className="metric-foot">{audit.trees_to_offset} trees to offset annually</div>
-          </div>
+          ))}
         </div>
 
         {audit.categories.length > 0 && (
@@ -132,27 +117,13 @@ function MLCard({ audit }: { audit: Audit }) {
           from the SWD formula result.
         </p>
       </div>
-      <div className="versus">
-        <div className="section-label">SWD vs ML</div>
-        <div className="versus-values">
-          <div>
-            <div className="versus-value">{formatCO2(audit.total_co2)}</div>
-            <div className="versus-caption">SWD formula</div>
-          </div>
-          <div className="versus-vs">vs</div>
-          <div>
-            <div className="versus-value">{formatCO2(ml.predicted_co2_grams)}</div>
-            <div className="versus-caption">ML model</div>
-          </div>
-        </div>
-      </div>
+      <Versus label="SWD vs ML" sep="vs" left={[formatCO2(audit.total_co2), "SWD formula"]} right={[formatCO2(ml.predicted_co2_grams), "ML model"]} />
     </div>
   );
 }
 
 function SavingsCard({ audit }: { audit: Audit }) {
   const p = audit.potential;
-  if (!p) return null;
   return (
     <div className="card split-card">
       <div className="split-text">
@@ -169,20 +140,24 @@ function SavingsCard({ audit }: { audit: Audit }) {
           )}
         </p>
       </div>
-      <div className="versus">
-        <div className="section-label">Now vs fixed</div>
-        <div className="versus-values">
-          <div>
-            <div className="versus-value" style={{ color: gradeColor(audit.grade) }}>{audit.grade}</div>
-            <div className="versus-caption">{formatCO2(audit.total_co2)}</div>
-          </div>
-          <div className="versus-vs">→</div>
-          <div>
-            <div className="versus-value" style={{ color: gradeColor(p.grade) }}>{p.grade}</div>
-            <div className="versus-caption">{formatCO2(p.total_co2)}</div>
-          </div>
-        </div>
-      </div>
+      <Versus label="Now vs fixed" sep="→" left={[audit.grade, formatCO2(audit.total_co2), gradeColor(audit.grade)]} right={[p.grade, formatCO2(p.total_co2), gradeColor(p.grade)]} />
+    </div>
+  );
+}
+
+type Side = [value: string, caption: string, color?: string];
+
+function Versus({ label, sep, left, right }: { label: string; sep: string; left: Side; right: Side }) {
+  const side = ([value, caption, color]: Side) => (
+    <div>
+      <div className="versus-value" style={{ color }}>{value}</div>
+      <div className="versus-caption">{caption}</div>
+    </div>
+  );
+  return (
+    <div className="versus">
+      <div className="section-label">{label}</div>
+      <div className="versus-values">{side(left)}<div className="versus-vs">{sep}</div>{side(right)}</div>
     </div>
   );
 }
@@ -211,11 +186,7 @@ function Trend({ url, currentId }: { url: string; currentId: string }) {
   const [points, setPoints] = useState<HistoryEntry[]>([]);
 
   useEffect(() => {
-    let active = true;
-    listHistory().then((list) => active && setPoints(list.filter((e) => e.url === url).reverse()));
-    return () => {
-      active = false;
-    };
+    listHistory().then((list) => setPoints(list.filter((e) => e.url === url).reverse()));
   }, [url, currentId]);
 
   if (points.length < 2) return null;

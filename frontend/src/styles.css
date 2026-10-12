@@ -206,7 +206,6 @@ code { font-family: var(--mono); font-size: 0.9em; }
 
 .metric-card, .grade-card { display: flex; flex-direction: column; gap: 12px; min-height: 150px; }
 .metric-foot, .grade-card .meter { margin-top: auto; }
-.metric-label { font-size: 11px; color: var(--text-sub); font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; }
 .metric-value { font-size: 36px; font-weight: 700; letter-spacing: -1.5px; line-height: 1; }
 .metric-unit { font-size: 13px; color: var(--text-sub); margin-top: 4px; }
 .metric-foot { font-size: 11px; color: var(--text-sub); line-height: 1.55; }

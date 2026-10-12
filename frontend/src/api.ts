@@ -3,7 +3,6 @@ import type { components } from "./api-types";
 type Schemas = components["schemas"];
 export type Audit = Schemas["AuditResponse"];
 export type Asset = Schemas["AssetInfo"];
-export type Category = Schemas["CategoryBreakdown"];
 export type Comparison = Schemas["CompareResponse"];
 export type CompareRow = Schemas["CompareRow"];
 export type Methodology = Schemas["Methodology"];
