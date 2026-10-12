@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import type { Asset, Audit } from "../api";
 import { downloadJson, listHistory, loadAudit, type HistoryEntry } from "../history";
-import { STATUS_COLOR, TYPE_META, formatBytes, formatCO2, formatDate, gradeColor } from "../format";
+import { ISSUES, STATUS_COLOR, TYPE_META, formatBytes, formatCO2, formatDate, gradeColor } from "../format";
 import { BarChart, PieChart } from "../components/Charts";
 import { BackButton, Missing } from "../App";
 
@@ -10,6 +10,7 @@ export default function AuditResult() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const [audit, setAudit] = useState<Audit | null | undefined>(undefined);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -25,6 +26,14 @@ export default function AuditResult() {
   if (audit === null) return <Missing text="This audit isn't saved in this browser. It may have expired after 7 days." />;
 
   const col = gradeColor(audit.grade);
+  const link = `${location.origin}/?url=${encodeURIComponent(audit.url)}`;
+  function copyLink() {
+    navigator.clipboard.writeText(link).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }, () => prompt("Copy this link", link));
+  }
+
   return (
     <div className="page">
       <div className="results-inner">
@@ -49,6 +58,7 @@ export default function AuditResult() {
 
         <div className="results-actions">
           <button className="btn btn-ghost btn-small" onClick={() => navigate("/", { state: { rerun: audit.url } })}>Run again</button>
+          <button className="btn btn-ghost btn-small" onClick={copyLink} aria-live="polite">{copied ? "Link copied" : "Copy link"}</button>
           <button className="btn btn-ghost btn-small" onClick={() => window.print()}>Download PDF</button>
           <button className="btn btn-ghost btn-small" onClick={() => downloadJson(`ecoweb-audit-${new URL(audit.url).hostname}.json`, audit)}>
             Download JSON
@@ -94,6 +104,7 @@ export default function AuditResult() {
         )}
 
         <SavingsCard audit={audit} />
+        <DeliveryCard delivery={audit.delivery} />
         <Trend url={audit.url} currentId={audit.id} />
         <MLCard audit={audit} />
         <AssetList assets={audit.assets} />
@@ -198,6 +209,26 @@ function SavingsCard({ audit }: { audit: Audit }) {
   );
 }
 
+function DeliveryCard({ delivery }: { delivery?: Audit["delivery"] }) {
+  if (!delivery) return null;
+  return (
+    <div className="card checks-card">
+      <div className="chart-title">Delivery checks</div>
+      <div className="checks">
+        {(Object.keys(ISSUES) as (keyof typeof ISSUES)[]).map((key) => (
+          <div className="check" key={key}>
+            <span className={`check-count ${delivery[key] ? "amber" : "green"}`}>{delivery[key]}</span>
+            <span>
+              <b>{ISSUES[key].label}</b>
+              <span className="check-detail">{ISSUES[key].detail}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Trend({ url, currentId }: { url: string; currentId: string }) {
   const [points, setPoints] = useState<HistoryEntry[]>([]);
 
@@ -280,7 +311,10 @@ function AssetList({ assets }: { assets: Asset[] }) {
                 </span>
                 <span className="asset-info">
                   <span className="asset-name">{a.name}</span>
-                  <span className="asset-size">{formatBytes(a.size_bytes)}</span>
+                  <span className="asset-size">
+                    {formatBytes(a.size_bytes)}
+                    {a.issues?.map((i) => <span className="asset-issue" key={i}> · {ISSUES[i].label}</span>)}
+                  </span>
                 </span>
                 <span className="asset-right">
                   <span className="asset-co2" style={{ color: col }}>{formatCO2(a.co2_grams)} CO₂</span>

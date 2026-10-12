@@ -11,11 +11,15 @@ async def run_audit(url: str) -> dict:
     assets, savable_bytes = [], 0
     for asset in scraped["assets"]:
         status = carbon.get_asset_status(asset["asset_type"], asset["size_bytes"])
-        saving = round(asset["size_bytes"] * carbon.SAVINGS_RATES[asset["asset_type"]][status])
+        kept = 1 - carbon.SAVINGS_RATES[asset["asset_type"]][status]
+        if "uncompressed" in asset["issues"]:
+            kept *= 1 - carbon.COMPRESSION_SAVING
+        saving = round(asset["size_bytes"] * (1 - kept))
         savable_bytes += saving
+        tips = [carbon.ISSUE_TIPS[issue] for issue in asset["issues"]]
         assets.append({**asset, "co2_grams": carbon.calculate_co2_grams(asset["size_bytes"]), "status": status,
                        "saving_co2_grams": carbon.calculate_co2_grams(saving),
-                       "optimization_tip": carbon.OPTIMIZATION_TIPS[asset["asset_type"]][status]})
+                       "optimization_tip": " ".join([*tips, carbon.OPTIMIZATION_TIPS[asset["asset_type"]][status]])})
     assets.sort(key=lambda a: a["co2_grams"], reverse=True)
 
     total_bytes = scraped["html_size"] + sum(a["size_bytes"] for a in assets)
@@ -42,6 +46,7 @@ async def run_audit(url: str) -> dict:
         "potential": {"total_co2": round(potential_co2, 4), "grade": potential_grade, "score": potential_score,
                       "saving_pct": round(savable_bytes / total_bytes * 100, 1) if total_bytes else 0.0},
         "green_hosting": green_hosting,
+        "delivery": {issue: sum(issue in a["issues"] for a in assets) for issue in carbon.ISSUE_TIPS},
     }
 
 

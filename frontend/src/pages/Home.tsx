@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { runAudit } from "../api";
+import { runAudit, serverAwake } from "../api";
 import { saveAudit } from "../history";
 import HistoryList from "../components/HistoryList";
 
@@ -20,9 +20,19 @@ export default function Home() {
   const [scanning, setScanning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
+  const [waking, setWaking] = useState(false);
   const abort = useRef<AbortController | null>(null);
 
   useEffect(() => () => abort.current?.abort(), []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setWaking(true), 2000);
+    serverAwake.then(() => {
+      clearTimeout(timer);
+      setWaking(false);
+    });
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!error) return;
@@ -38,9 +48,11 @@ export default function Home() {
 
   useEffect(() => {
     const rerun = (location.state as { rerun?: string } | null)?.rerun;
-    if (!rerun) return;
-    navigate(".", { replace: true, state: null });
-    start(rerun, true);
+    const target = rerun ?? new URLSearchParams(location.search).get("url");
+    if (!target) return;
+    navigate("/", { replace: true });
+    setUrl(target);
+    start(target, !!rerun);
   }, []);
 
   async function start(target: string, refresh = false) {
@@ -65,7 +77,7 @@ export default function Home() {
     else setShake(true);
   }
 
-  if (scanning) return <Loading url={scanning} />;
+  if (scanning) return <Loading url={scanning} waking={waking} />;
 
   return (
     <>
@@ -99,6 +111,7 @@ export default function Home() {
           />
           <button className="btn btn-primary" type="submit">Audit Now</button>
         </form>
+        {waking && <Waking />}
 
         <div className="stats-strip">
           {[
@@ -120,7 +133,11 @@ export default function Home() {
   );
 }
 
-function Loading({ url }: { url: string }) {
+function Waking() {
+  return <p className="waking" role="status">Waking the server from sleep. The first audit can take up to a minute.</p>;
+}
+
+function Loading({ url, waking }: { url: string; waking: boolean }) {
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -156,6 +173,7 @@ function Loading({ url }: { url: string }) {
             );
           })}
         </div>
+        {waking && <Waking />}
       </div>
     </section>
   );

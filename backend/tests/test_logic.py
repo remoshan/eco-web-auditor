@@ -11,7 +11,8 @@ from app.schemas import AuditRequest, AuditResponse, AuditSummary
 from app.services import carbon, predictor
 from app.services.audit import run_audit
 from app.services.compare import compare_audits
-from app.services.scraper import BlockedURLError, check_green_hosting, extract_assets, reject_private_hosts
+from app.services.scraper import (BlockedURLError, check_green_hosting, delivery_issues, extract_assets,
+                                  reject_private_hosts)
 
 
 class UrlNormalisation(unittest.TestCase):
@@ -57,6 +58,26 @@ class AssetExtraction(unittest.TestCase):
         })
 
 
+class DeliveryChecks(unittest.TestCase):
+    def test_flags_from_response_headers(self):
+        year = {"cache-control": "public, max-age=31536000"}
+        cases = [
+            ("script", 5_000, year, False, ["uncompressed"]),
+            ("script", 500, year, False, []),
+            ("css", 50_000, year, True, []),
+            ("image", 20_000, {"content-type": "image/png", "expires": "Thu, 01 Jan 2099 00:00:00 GMT"}, False,
+             ["legacy_format"]),
+            ("image", 200_000, {"content-type": "image/webp", "cache-control": "no-cache, max-age=31536000"}, True,
+             ["no_cache"]),
+            ("image", 5_000, {"content-type": "image/svg+xml", "cache-control": "max-age=600"}, False,
+             ["uncompressed", "no_cache"]),
+            ("image", 43, {"content-type": "image/gif"}, False, []),
+        ]
+        for asset_type, size, headers, encoded, expected in cases:
+            with self.subTest(asset_type=asset_type, headers=headers):
+                self.assertEqual(delivery_issues(asset_type, size, headers, encoded), expected)
+
+
 class Carbon(unittest.TestCase):
     def test_grades_and_ratings(self):
         self.assertEqual(carbon.get_grade_and_score(0.09), ("A+", 96))
@@ -89,8 +110,9 @@ class ModelParity(unittest.TestCase):
 class Pipeline(unittest.TestCase):
     def test_result_matches_response_schema(self):
         scraped = {"html_size": 50_000, "assets": [
-            {"url": "https://x.test/a.js", "name": "a.js", "asset_type": "script", "size_bytes": 20_000},
-            {"url": "https://x.test/a.png", "name": "a.png", "asset_type": "image", "size_bytes": 400_000},
+            {"url": "https://x.test/a.js", "name": "a.js", "asset_type": "script", "size_bytes": 20_000,
+             "issues": ["uncompressed"]},
+            {"url": "https://x.test/a.png", "name": "a.png", "asset_type": "image", "size_bytes": 400_000, "issues": []},
         ]}
         green = {"green": True, "hosted_by": "Host"}
         with patch("app.services.audit.scrape_page", AsyncMock(return_value=scraped)),                 patch("app.services.audit.check_green_hosting", AsyncMock(return_value=green)):
@@ -99,8 +121,11 @@ class Pipeline(unittest.TestCase):
         self.assertEqual([a.status for a in result.assets], ["red", "green"])
         self.assertEqual([(c.name, c.percentage) for c in result.categories], [("Image", 85.1), ("Script", 4.3)])
         self.assertIn(result.ml_prediction.agreement, ("close", "divergent"))
-        self.assertEqual([a.saving_co2_grams for a in result.assets], [carbon.calculate_co2_grams(280_000), 0.0])
-        self.assertEqual((result.grade, result.potential.grade, result.potential.saving_pct), ("A", "A+", 59.6))
+        self.assertEqual([a.saving_co2_grams for a in result.assets],
+                         [carbon.calculate_co2_grams(280_000), carbon.calculate_co2_grams(14_000)])
+        self.assertEqual((result.grade, result.potential.grade, result.potential.saving_pct), ("A", "A+", 62.6))
+        self.assertEqual(result.delivery.model_dump(), {"uncompressed": 1, "legacy_format": 0, "no_cache": 0})
+        self.assertTrue(result.assets[1].optimization_tip.startswith("Sent without compression."))
         self.assertTrue(result.green_hosting.green)
 
 

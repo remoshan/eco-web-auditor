@@ -56,10 +56,14 @@ that **90.3%** would use a tool with this element-level breakdown.
   reach once the flagged assets are fixed.
 - **Green hosting check.** Shows whether the site's host runs on renewable energy, via The
   Green Web Foundation.
+- **Delivery checks.** Flags text files sent without compression, images still served as
+  JPEG, PNG or GIF, and files browsers can't cache, each with its fix.
 - **ML cross-check.** An independently trained regression model verifies the SWD figure.
 - **History, re-audit and trends.** Audits are saved in your browser. Run one again with a
   click, and see a CO₂ trend line once a site has been audited more than once.
 - **Compare.** Put two audits side by side, with per-metric and per-asset-type changes.
+- **Shareable links.** "Copy link" gives a link like `/?url=python.org` that runs the same
+  audit for whoever opens it, with nothing stored on the server.
 - **Export.** Save a report as PDF (print-friendly layout) or JSON, and export or import your
   whole history to move it between devices.
 - **Installable and offline.** Install it as an app on phone or desktop. Saved audits open
@@ -153,6 +157,7 @@ passes through the same private-address guard.
 | History | IndexedDB via `idb-keyval` | About 600 bytes |
 | API types | `openapi-typescript` | Generated from the backend schema |
 | Offline | `vite-plugin-pwa` (Workbox) | Generated service worker and web app manifest |
+| CI | GitHub Actions + Dependabot | Tests and production build on every PR |
 
 The backend runs on **Python 3.12–3.14** with six direct dependencies.
 
@@ -286,7 +291,8 @@ Responds `200 OK` (arrays shortened):
       "co2_grams": 0.000771,
       "saving_co2_grams": 0.0,
       "status": "green",
-      "optimization_tip": "Script is well-sized. Ensure it is deferred if non-critical and served with Brotli compression for best transfer efficiency."
+      "issues": ["no_cache"],
+      "optimization_tip": "Not cached for at least a day. Give versioned files a long Cache-Control max-age so repeat visits skip the download. Script is well-sized. ..."
     }
   ],
   "ml_prediction": {
@@ -297,7 +303,8 @@ Responds `200 OK` (arrays shortened):
     "agreement": "close"
   },
   "potential": { "total_co2": 0.001, "grade": "A+", "score": 96, "saving_pct": 0.0 },
-  "green_hosting": { "green": true, "hosted_by": "Cloudflare" }
+  "green_hosting": { "green": true, "hosted_by": "Cloudflare" },
+  "delivery": { "uncompressed": 0, "legacy_format": 0, "no_cache": 1 }
 }
 ```
 
@@ -309,6 +316,10 @@ of the SWD figure, and `divergent` otherwise.
 after every flagged asset is fixed (see [Potential savings](#potential-savings)).
 `green_hosting` comes from The Green Web Foundation and is `null` when the lookup fails. It
 is informational only and never changes the grade.
+
+`issues` lists what the asset's response headers reveal: `uncompressed`, `legacy_format` or
+`no_cache` (see [Delivery checks](#delivery-checks-from-response-headers)). `delivery` counts
+each across the page.
 
 The server does not store the result. The frontend saves it to IndexedDB and the `id`
 becomes the `/audits/:id` route.
@@ -400,7 +411,9 @@ recommends. The page's potential grade is the SWD grade after all of those reduc
 | Font | 50% | 70% | Subsetting and WOFF2 |
 | Media | 30% | 40% | Modern codecs |
 
-Well-sized (green) assets are assumed to have nothing left to save.
+Well-sized (green) assets are assumed to have nothing left to save from these fixes. A text
+file sent without compression also gets a 70% compression saving, applied after the rate
+above, so a red script sent uncompressed keeps 0.5 × 0.3 = 15% of its size.
 
 ### ML cross-validation
 
@@ -431,7 +444,7 @@ python -m unittest discover tests
 ```
 
 ```
-Ran 16 tests in 0.228s
+Ran 17 tests in 0.181s
 
 OK
 ```
@@ -447,6 +460,15 @@ The tests cover:
   the potential grade
 - The green hosting lookup, including failure returning "unknown"
 - The audit cache, and `refresh` bypassing it
+- The delivery checks: compression, legacy image formats and cache lifetimes, with the
+  size floors that keep tiny files and tracking pixels out
+
+### Continuous integration
+
+GitHub Actions runs the unit tests and the strict TypeScript production build on every pull
+request and every push to `main`, so a broken change is caught before Render or Vercel
+deploys it. Dependabot opens one grouped update a month each for the backend, the frontend
+and the workflow actions, and CI checks those too.
 
 ### A real audit
 
@@ -496,6 +518,8 @@ Checked at 375 px, 768 px and 1280 px in both themes:
 - Auditing a site, reopening it from history, and refreshing on `/audits/:id`
 - The savings card, per-asset savings and the green hosting pill
 - "Run again" forcing a fresh scan, and the trend line appearing for the second audit
+- Opening a copied `/?url=` link reusing the cached report without a duplicate history row,
+  going back without re-auditing, and a blocked URL showing its error with the field filled in
 - Downloading JSON, and exporting, clearing and re-importing history (re-imports don't
   duplicate, and files older than 7 days or the wrong shape are rejected clearly)
 - Opening audits saved before these features existed
@@ -503,6 +527,8 @@ Checked at 375 px, 768 px and 1280 px in both themes:
   precaches the app, and after stopping both servers a saved audit still opens with its
   charts, the About page loads, and a new audit shows the offline message
 - Comparing two audits and the About page
+- A slow backend shows the "waking the server" notice on the home and loading screens, and a
+  warm one never does
 - Empty and error states
 
 All pages were free of horizontal overflow and console errors, and `npm run build` is
@@ -541,6 +567,42 @@ when the scan ran.
 The audited hostname is sent to The Green Web Foundation's public greencheck API while the
 page is being scraped, so the lookup adds no time. It has its own 5-second timeout and any
 failure is reported as unknown rather than failing the audit.
+
+### Cold starts
+
+The free Render instance sleeps when idle, and waking it takes up to a minute. The frontend
+pings `/health` as soon as any page loads, so the server is usually awake by the time an audit
+is submitted. If the ping hasn't answered within two seconds, a notice explains the wait
+instead of leaving the loading steps stalled.
+
+### Delivery checks from response headers
+
+The scraper already sends a HEAD request for every asset to size it, so the checks cost no
+extra requests. The response headers decide three flags:
+
+| Flag | Raised when |
+|---|---|
+| `uncompressed` | A script, stylesheet or SVG of 1 KB or more comes back without `Content-Encoding` |
+| `legacy_format` | An image of 10 KB or more is JPEG, PNG, GIF or BMP |
+| `no_cache` | A file of 1 KB or more has `no-store`, `no-cache` or a `max-age` under a day, or no caching headers at all |
+
+Asset requests send the `Accept` header a browser sends for images. Image CDNs such as
+Shopify's, The Guardian's and Wikimedia's choose WebP or AVIF from that header; without it
+they returned JPEG or PNG, so the format check would have been wrong and those pages were
+being measured far heavier than visitors receive (shopify.com went from 4.29 g to 1.38 g).
+Sites that don't negotiate measure exactly as before.
+
+Compression is only judged from a successful HEAD. If a server rejects HEAD, the flag is
+skipped rather than guessed from the one-byte range request, which servers never compress.
+
+### Shareable links without storage
+
+Reports live only in the browser that ran them, so a link to `/audits/:id` means nothing to
+anyone else. A shared link carries the audited URL instead, and opening `/?url=…` starts that
+audit through the normal path, so validation, errors and saving behave exactly as if it had
+been typed in. Within ten minutes the audit cache returns the same report, `id` included;
+after that the link gives a fresh scan. The query string is removed straight away, so going
+back doesn't start the audit again.
 
 ### ML model as JSON
 
@@ -605,6 +667,10 @@ generated once from `favicon.svg` and are committed as static files.
 ## Project structure
 
 ```
+.github/
+├── workflows/ci.yml         tests + production build on every PR
+└── dependabot.yml           monthly grouped dependency updates
+
 backend/
 ├── main.py                  app setup, CORS, validation-error handler
 ├── requirements.txt
@@ -629,7 +695,7 @@ frontend/
 └── src/
     ├── main.tsx             router with lazy-loaded routes
     ├── App.tsx              layout, navigation, theme
-    ├── api.ts               fetch wrapper for the three endpoints
+    ├── api.ts               fetch wrapper for the endpoints, wake-up ping
     ├── api-types.ts         generated from OpenAPI
     ├── history.ts           IndexedDB history
     ├── format.ts            display formatting and colours
@@ -657,6 +723,10 @@ the resolved IP in a custom transport would close the gap.
 
 **Rate limit and cache are per process.** Both reset on restart, and a client can spoof the
 first `X-Forwarded-For` entry. Moving them to Redis or the edge proxy would fix both.
+
+**Brotli isn't requested.** Asset requests advertise gzip and deflate only, so servers that
+prefer Brotli are measured at their slightly larger gzip size. Compression is still detected
+either way.
 
 **Savings are estimates.** Reductions use typical figures for each fix, not a re-encoding of
 the actual file.

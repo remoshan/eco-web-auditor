@@ -10,6 +10,7 @@ export type Methodology = Schemas["Methodology"];
 
 const LOCAL = import.meta.env.DEV || ["localhost", "127.0.0.1"].includes(location.hostname);
 export const API_ORIGIN = LOCAL ? "" : "https://ecoweb-auditor-api.onrender.com";
+export const serverAwake = fetch(API_ORIGIN + "/health").then(() => {}, () => {});
 
 async function request<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const init = body === undefined ? { signal } : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal };

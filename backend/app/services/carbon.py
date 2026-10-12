@@ -23,11 +23,17 @@ SAVINGS_RATES = {
     "font": {"green": 0.0, "amber": 0.5, "red": 0.7},
     "media": {"green": 0.0, "amber": 0.3, "red": 0.4},
 }
+COMPRESSION_SAVING = 0.7
+ISSUE_TIPS = {
+    "uncompressed": "Sent without compression. Turn on Brotli or gzip on the server; text files usually shrink by about 70%.",
+    "legacy_format": "Served as JPEG, PNG or GIF even to browsers that accept WebP and AVIF, which are typically 25–50% smaller.",
+    "no_cache": "Not cached for at least a day. Give versioned files a long Cache-Control max-age so repeat visits skip the download.",
+}
 OPTIMIZATION_TIPS = {
     "image": {
         "red": "Large image detected. Convert to WebP or AVIF (saves 60–85% size). Add loading='lazy' for below-the-fold images and use srcset for responsive images to avoid serving oversized files to mobile users.",
         "amber": "Consider converting to WebP or AVIF and compressing with Squoosh or ImageOptim. Add loading='lazy' if this image is not in the initial viewport.",
-        "green": "Image is well optimised. Ensure srcset is used for responsive sizing and consider a CDN for faster global delivery.",
+        "green": "Image is well-sized. Ensure srcset is used for responsive sizing and consider a CDN for faster global delivery.",
     },
     "script": {
         "red": "Critical JavaScript bundle. Enable tree-shaking and route-based code-splitting in your bundler. Audit dependencies with bundlephobia.com. Use async or defer attributes to prevent render-blocking.",
@@ -37,7 +43,7 @@ OPTIMIZATION_TIPS = {
     "css": {
         "red": "Stylesheet is critically large. Run PurgeCSS or equivalent to strip unused rules — production builds should typically be under 15 KB. Extract critical CSS inline and load the rest asynchronously.",
         "amber": "Run PurgeCSS to remove unused style rules. Consider splitting into critical (inline) CSS and a lazily-loaded secondary stylesheet.",
-        "green": "Stylesheet is well optimised. Ensure minification is enabled in your build pipeline and that the file is Brotli-compressed.",
+        "green": "Stylesheet is well-sized. Ensure minification is enabled in your build pipeline and that the file is Brotli-compressed.",
     },
     "font": {
         "red": "Large font file. Subset the font to only the characters you use with FontSquirrel or glyphhanger — this can reduce size by 70%+. Use WOFF2 format and add font-display: swap to avoid invisible text.",
@@ -94,4 +100,5 @@ def methodology() -> dict:
         "ratings": [{"min_score": m, "label": label} for m, label in RATING_THRESHOLDS],
         "asset_status": ASSET_STATUS_THRESHOLDS,
         "savings_rates": SAVINGS_RATES,
+        "compression_saving": COMPRESSION_SAVING,
     }
