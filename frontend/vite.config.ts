@@ -23,8 +23,8 @@ export default defineConfig({
           { src: "maskable-icon-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
-      workbox: { navigateFallback: "/index.html", navigateFallbackDenylist: [/^\/api/, /^\/docs/, /^\/openapi\.json/] },
+      workbox: { navigateFallback: "/index.html", navigateFallbackDenylist: [/^\/api/, /^\/health/, /^\/docs/, /^\/openapi\.json/] },
     }),
   ],
-  server: { host: true, proxy: { "/api": backend, "/docs": backend, "/openapi.json": backend } },
+  server: { host: true, proxy: { "/api": backend, "/health": backend, "/docs": backend, "/openapi.json": backend } },
 });

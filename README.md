@@ -153,6 +153,7 @@ passes through the same private-address guard.
 | History | IndexedDB via `idb-keyval` | About 600 bytes |
 | API types | `openapi-typescript` | Generated from the backend schema |
 | Offline | `vite-plugin-pwa` (Workbox) | Generated service worker and web app manifest |
+| CI | GitHub Actions + Dependabot | Tests and production build on every PR |
 
 The backend runs on **Python 3.12–3.14** with six direct dependencies.
 
@@ -448,6 +449,13 @@ The tests cover:
 - The green hosting lookup, including failure returning "unknown"
 - The audit cache, and `refresh` bypassing it
 
+### Continuous integration
+
+GitHub Actions runs the unit tests and the strict TypeScript production build on every pull
+request and every push to `main`, so a broken change is caught before Render or Vercel
+deploys it. Dependabot opens one grouped update a month each for the backend, the frontend
+and the workflow actions, and CI checks those too.
+
 ### A real audit
 
 ```bash
@@ -503,6 +511,8 @@ Checked at 375 px, 768 px and 1280 px in both themes:
   precaches the app, and after stopping both servers a saved audit still opens with its
   charts, the About page loads, and a new audit shows the offline message
 - Comparing two audits and the About page
+- A slow backend shows the "waking the server" notice on the home and loading screens, and a
+  warm one never does
 - Empty and error states
 
 All pages were free of horizontal overflow and console errors, and `npm run build` is
@@ -541,6 +551,13 @@ when the scan ran.
 The audited hostname is sent to The Green Web Foundation's public greencheck API while the
 page is being scraped, so the lookup adds no time. It has its own 5-second timeout and any
 failure is reported as unknown rather than failing the audit.
+
+### Cold starts
+
+The free Render instance sleeps when idle, and waking it takes up to a minute. The frontend
+pings `/health` as soon as any page loads, so the server is usually awake by the time an audit
+is submitted. If the ping hasn't answered within two seconds, a notice explains the wait
+instead of leaving the loading steps stalled.
 
 ### ML model as JSON
 
@@ -605,6 +622,10 @@ generated once from `favicon.svg` and are committed as static files.
 ## Project structure
 
 ```
+.github/
+├── workflows/ci.yml         tests + production build on every PR
+└── dependabot.yml           monthly grouped dependency updates
+
 backend/
 ├── main.py                  app setup, CORS, validation-error handler
 ├── requirements.txt
@@ -629,7 +650,7 @@ frontend/
 └── src/
     ├── main.tsx             router with lazy-loaded routes
     ├── App.tsx              layout, navigation, theme
-    ├── api.ts               fetch wrapper for the three endpoints
+    ├── api.ts               fetch wrapper for the endpoints, wake-up ping
     ├── api-types.ts         generated from OpenAPI
     ├── history.ts           IndexedDB history
     ├── format.ts            display formatting and colours
