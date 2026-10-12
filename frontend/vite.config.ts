@@ -14,8 +14,8 @@ export default defineConfig({
         name: "EcoWeb Auditor",
         short_name: "EcoWeb",
         description: "Estimate the carbon footprint of any web page, element by element.",
-        theme_color: "#060c06",
-        background_color: "#060c06",
+        theme_color: "#06170e",
+        background_color: "#06170e",
         display: "standalone",
         icons: [
           { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
@@ -23,8 +23,8 @@ export default defineConfig({
           { src: "maskable-icon-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
-      workbox: { navigateFallback: "/index.html", navigateFallbackDenylist: [/^\/api/, /^\/health/, /^\/docs/, /^\/openapi\.json/] },
+      workbox: { navigateFallback: "/index.html", navigateFallbackDenylist: [/^\/api/, /^\/health/] },
     }),
   ],
-  server: { host: true, proxy: { "/api": backend, "/health": backend, "/docs": backend, "/openapi.json": backend } },
+  server: { host: true, proxy: { "/api": backend, "/health": backend } },
 });

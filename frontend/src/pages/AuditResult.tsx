@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import type { Asset, Audit } from "../api";
 import { downloadJson, listHistory, loadAudit, type HistoryEntry } from "../history";
-import { ISSUES, STATUS_COLOR, TYPE_META, formatBytes, formatCO2, formatDate, gradeColor } from "../format";
-import { BarChart, PieChart } from "../components/Charts";
+import { ISSUES, STATUS_COLOR, TYPE_LABEL, formatBytes, formatCO2, formatDate, gradeColor } from "../format";
 import { BackButton, Missing } from "../App";
 
 export default function AuditResult() {
@@ -50,9 +49,7 @@ export default function AuditResult() {
                 {audit.green_hosting.green ? `Green host${audit.green_hosting.hosted_by ? ` · ${audit.green_hosting.hosted_by}` : ""}` : "Not verified green"}
               </a>
             )}
-            <div className="grade-pill" style={{ background: `${col}18`, border: `1px solid ${col}40`, color: col }}>
-              {audit.grade} Grade
-            </div>
+            <div className="grade-pill" style={{ color: col }}>{audit.grade} Grade</div>
           </div>
         </div>
 
@@ -65,12 +62,17 @@ export default function AuditResult() {
           </button>
         </div>
 
-        <div className="bento-row-1">
-          <Gauge grade={audit.grade} score={audit.score} rating={audit.rating} />
+        <div className="metrics">
+          <div className="card grade-card">
+            <div className="metric-label">Grade</div>
+            <div className="grade-big" style={{ color: col }}>{audit.grade}</div>
+            <div className="grade-meta">Score {audit.score}/100 · {audit.rating}</div>
+            <div className="meter"><div style={{ width: `${audit.score}%`, background: col }} /></div>
+          </div>
           <div className="card metric-card">
             <div className="metric-label">Per-visit carbon</div>
             <div>
-              <div className="metric-value green">{formatCO2(audit.total_co2)}</div>
+              <div className="metric-value">{formatCO2(audit.total_co2)}</div>
               <div className="metric-unit">CO₂ per page visit</div>
             </div>
             <div className="metric-foot">{audit.annual_co2_kg} kg CO₂/yr</div>
@@ -91,15 +93,15 @@ export default function AuditResult() {
         </div>
 
         {audit.categories.length > 0 && (
-          <div className="bento-row-2">
-            <div className="card">
-              <div className="chart-title">Emissions by asset type</div>
-              <PieChart categories={audit.categories} />
-            </div>
-            <div className="card">
-              <div className="chart-title">CO₂ per category (g per visit)</div>
-              <BarChart categories={audit.categories} />
-            </div>
+          <div className="card block">
+            <div className="chart-title">CO₂ by asset type</div>
+            {audit.categories.map((c) => (
+              <div className="breakdown-row" key={c.name}>
+                <span>{c.name} · {c.count}</span>
+                <div className="meter"><div style={{ width: `${c.percentage}%` }} /></div>
+                <span>{formatCO2(c.total_co2)} · {c.percentage}%</span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -113,41 +115,17 @@ export default function AuditResult() {
   );
 }
 
-const CIRCUMFERENCE = 2 * Math.PI * 62;
-
-function Gauge({ grade, score, rating }: { grade: string; score: number; rating: string }) {
-  const col = gradeColor(grade);
-  const filled = (score / 100) * CIRCUMFERENCE;
-
-  return (
-    <div className="card gauge-card">
-      <svg width="160" height="160" viewBox="0 0 160 160" role="img" aria-label={`Grade ${grade}, score ${score} out of 100`}>
-        <circle className="gauge-track" cx="80" cy="80" r="62" fill="none" strokeWidth="9" />
-        <circle
-          className="gauge-arc" cx="80" cy="80" r="62" fill="none" stroke={col} strokeWidth="9" strokeLinecap="round"
-          strokeDasharray={`${filled} ${CIRCUMFERENCE}`} transform="rotate(-90 80 80)"
-        />
-        <text className="gauge-grade" x="80" y="73" textAnchor="middle">{grade}</text>
-        <text className="gauge-score" x="80" y="94" textAnchor="middle">Score {score}/100</text>
-      </svg>
-      <div className="gauge-label" style={{ color: col }}>{rating}</div>
-    </div>
-  );
-}
-
 function MLCard({ audit }: { audit: Audit }) {
   const ml = audit.ml_prediction;
   const diff = ml.difference_pct;
   return (
     <div className="card split-card">
       <div className="split-text">
-        <div className="chart-title">
-          ML Model Cross-Validation <span className="badge badge-green">Research Component</span>
-        </div>
+        <div className="chart-title">ML model cross-check</div>
         <p className="split-desc">
           An independently trained <b>{ml.model_name}</b> regression model (R² = <b>{ml.r2_score.toFixed(4)}</b>)
           predicts <strong className="green">{formatCO2(ml.predicted_co2_grams)}</strong> CO₂ for this page based on its
-          element-level features — a difference of{" "}
+          element-level features, a difference of{" "}
           <strong className={ml.agreement === "divergent" ? "amber" : ml.agreement === "close" ? "green" : ""}>
             {diff == null ? "–" : `${diff > 0 ? "+" : ""}${diff}%`}
           </strong>{" "}
@@ -163,7 +141,7 @@ function MLCard({ audit }: { audit: Audit }) {
           </div>
           <div className="versus-vs">vs</div>
           <div>
-            <div className="versus-value green">{formatCO2(ml.predicted_co2_grams)}</div>
+            <div className="versus-value">{formatCO2(ml.predicted_co2_grams)}</div>
             <div className="versus-caption">ML model</div>
           </div>
         </div>
@@ -212,7 +190,7 @@ function SavingsCard({ audit }: { audit: Audit }) {
 function DeliveryCard({ delivery }: { delivery?: Audit["delivery"] }) {
   if (!delivery) return null;
   return (
-    <div className="card checks-card">
+    <div className="card block">
       <div className="chart-title">Delivery checks</div>
       <div className="checks">
         {(Object.keys(ISSUES) as (keyof typeof ISSUES)[]).map((key) => (
@@ -249,11 +227,11 @@ function Trend({ url, currentId }: { url: string; currentId: string }) {
   const last = points[points.length - 1];
 
   return (
-    <div className="card trend-card">
+    <div className="card block">
       <div className="chart-title">CO₂ over time for this site</div>
       <svg className="trend-chart" role="img" aria-label={`CO₂ across ${points.length} audits of ${url}`}>
         {xy.slice(1).map((p, i) => <line key={points[i].id} x1={xy[i].x} y1={xy[i].y} x2={p.x} y2={p.y} />)}
-        {xy.map((p, i) => <circle key={points[i].id} cx={p.x} cy={p.y} r={points[i].id === currentId ? 4.5 : 3} />)}
+        {xy.map((p, i) => <line className="point" key={points[i].id} x1={p.x} y1={p.y} x2={p.x} y2={p.y} />)}
       </svg>
       <div className="trend-foot">
         <span>{formatDate(first.audited_at)} · {formatCO2(first.total_co2)}</span>
@@ -280,19 +258,12 @@ function AssetList({ assets }: { assets: Asset[] }) {
     <div className="card">
       <div className="asset-header">
         <div>
-          <h2 className="asset-title">Asset Deep Dive</h2>
+          <h2 className="asset-title">Assets</h2>
           <div className="asset-subtitle">Tap any asset to see the issue and how to fix it</div>
         </div>
         <div className="filter-tabs" role="group" aria-label="Filter assets by status">
           {FILTERS.map(({ key, label }) => (
-            <button
-              key={key}
-              className={`filter-tab${filter === key ? ` active-${key}` : ""}`}
-              aria-pressed={filter === key}
-              onClick={() => setFilter(key)}
-            >
-              {label}
-            </button>
+            <button key={key} className="filter-tab" aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>
           ))}
         </div>
       </div>
@@ -301,14 +272,11 @@ function AssetList({ assets }: { assets: Asset[] }) {
         {shown.length === 0 && <div className="asset-empty">No assets in this category.</div>}
         {shown.map((a) => {
           const col = STATUS_COLOR[a.status];
-          const meta = TYPE_META[a.asset_type];
           const isOpen = open === a.url;
           return (
             <div className={`asset-row${isOpen ? " open" : ""}`} key={a.url}>
               <button className="asset-row-main" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : a.url)}>
-                <span className="type-badge" style={{ color: meta.color, background: `${meta.color}18`, borderColor: `${meta.color}35` }}>
-                  {meta.label}
-                </span>
+                <span className="type-badge">{TYPE_LABEL[a.asset_type]}</span>
                 <span className="asset-info">
                   <span className="asset-name">{a.name}</span>
                   <span className="asset-size">
@@ -318,7 +286,7 @@ function AssetList({ assets }: { assets: Asset[] }) {
                 </span>
                 <span className="asset-right">
                   <span className="asset-co2" style={{ color: col }}>{formatCO2(a.co2_grams)} CO₂</span>
-                  <span className="status-dot" style={{ background: col, boxShadow: `0 0 5px ${col}90` }} />
+                  <span className="status-dot" style={{ background: col }} />
                   <svg className="chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
                     <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>

@@ -53,8 +53,8 @@ async def run_audit(url: str) -> dict:
 def categorise(assets: list[dict], total_co2: float) -> list[dict]:
     groups: dict[str, dict] = {}
     for a in assets:
-        g = groups.setdefault(a["asset_type"], {"name": a["asset_type"].capitalize(), "count": 0, "total_bytes": 0,
-                                                "total_co2": 0.0})
+        name = "CSS" if a["asset_type"] == "css" else a["asset_type"].capitalize()
+        g = groups.setdefault(a["asset_type"], {"name": name, "count": 0, "total_bytes": 0, "total_co2": 0.0})
         g["count"] += 1
         g["total_bytes"] += a["size_bytes"]
         g["total_co2"] += a["co2_grams"]

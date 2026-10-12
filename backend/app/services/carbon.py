@@ -41,12 +41,12 @@ OPTIMIZATION_TIPS = {
         "green": "Script is well-sized. Ensure it is deferred if non-critical and served with Brotli compression for best transfer efficiency.",
     },
     "css": {
-        "red": "Stylesheet is critically large. Run PurgeCSS or equivalent to strip unused rules — production builds should typically be under 15 KB. Extract critical CSS inline and load the rest asynchronously.",
+        "red": "Stylesheet is critically large. Run PurgeCSS or equivalent to strip unused rules. Production builds should typically be under 15 KB. Extract critical CSS inline and load the rest asynchronously.",
         "amber": "Run PurgeCSS to remove unused style rules. Consider splitting into critical (inline) CSS and a lazily-loaded secondary stylesheet.",
         "green": "Stylesheet is well-sized. Ensure minification is enabled in your build pipeline and that the file is Brotli-compressed.",
     },
     "font": {
-        "red": "Large font file. Subset the font to only the characters you use with FontSquirrel or glyphhanger — this can reduce size by 70%+. Use WOFF2 format and add font-display: swap to avoid invisible text.",
+        "red": "Large font file. Subset the font to only the characters you use with FontSquirrel or glyphhanger, which can reduce size by 70% or more. Use WOFF2 format and add font-display: swap to avoid invisible text.",
         "amber": "Subset the font to your used character range to reduce size by 40–60%. Ensure WOFF2 format is used (best compression) and add font-display: swap.",
         "green": "Font is well-optimised. WOFF2 is the recommended format. Subsetting can reduce size further if specific glyphs are unused.",
     },

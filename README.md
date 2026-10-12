@@ -153,7 +153,7 @@ passes through the same private-address guard.
 | Frontend | React 19 + TypeScript 5.9 | `strict` enabled |
 | Build | Vite 8 | Route-level code splitting |
 | Routing | React Router 8 | `/`, `/audits/:id`, `/compare/:a/:b`, `/about` |
-| Charts | Chart.js 4 | Tree-shaken, only the controllers that are used |
+| Charts | Plain CSS | Flat bars and an inline SVG trend line; no chart library |
 | History | IndexedDB via `idb-keyval` | About 600 bytes |
 | API types | `openapi-typescript` | Generated from the backend schema |
 | Offline | `vite-plugin-pwa` (Workbox) | Generated service worker and web app manifest |
@@ -224,13 +224,15 @@ There are **no `.env` files**. Every setting has a working default in
 `backend/app/config.py`; to override one, set an environment variable with the same name
 before starting the backend.
 
+Windows PowerShell:
+
 ```bash
-# Windows PowerShell
 $env:ALLOW_PRIVATE_URLS = "true"
 ```
 
+macOS / Linux:
+
 ```bash
-# macOS / Linux
 export ALLOW_PRIVATE_URLS=true
 ```
 
@@ -524,8 +526,8 @@ Checked at 375 px, 768 px and 1280 px in both themes:
   duplicate, and files older than 7 days or the wrong shape are rejected clearly)
 - Opening audits saved before these features existed
 - With the production bundle (`npm run preview`): the service worker registers and
-  precaches the app, and after stopping both servers a saved audit still opens with its
-  charts, the About page loads, and a new audit shows the offline message
+  precaches the app, and after stopping both servers a saved audit still opens in full,
+  the About page loads, and a new audit shows the offline message
 - Comparing two audits and the About page
 - A slow backend shows the "waking the server" notice on the home and loading screens, and a
   warm one never does
@@ -642,18 +644,19 @@ the UI silently rendering `undefined`.
 
 ### Built for every device
 
-- Route-level code splitting keeps Chart.js out of the first download
+- Route-level code splitting loads each page only when it is opened
+- Charts are plain CSS bars and an inline SVG line, so there is no chart library to download
+  and they follow the theme without redrawing
 - Touch targets are at least 44 px on coarse pointers
 - Safe-area insets are respected on notched phones
 - Inputs are 16 px, so iOS doesn't zoom in on focus
 - `prefers-reduced-motion` disables animation
 - The first-visit theme follows `prefers-color-scheme`
-- Charts are destroyed when their view unmounts and redrawn when the theme changes
 
 ### Installable and offline
 
 `vite-plugin-pwa` generates the web app manifest and a Workbox service worker at build time.
-The service worker precaches the app shell and every route's chunk, about 540 KB, after the
+The service worker precaches the app shell and every route's chunk, about 370 KB, after the
 first page has loaded, so it never slows the first render. Navigations fall back to the
 cached `index.html`, which lets saved audits open offline straight from IndexedDB. API
 calls are never cached.
@@ -701,7 +704,7 @@ frontend/
     ├── format.ts            display formatting and colours
     ├── styles.css           design tokens, both themes, responsive rules
     ├── pages/               Home, AuditResult, Compare, About
-    └── components/          Charts, HistoryList
+    └── components/          HistoryList
 ```
 
 ---
@@ -759,4 +762,4 @@ Released under the [MIT License](LICENSE). Copyright (c) 2026 Francis Remoshan.
 
 ---
 
-<p align="center"><sub>Built as a BSc (Hons) Software Engineering final year project at the University of Bedfordshire.</sub></p>
+<p align="center"><sub>Built by <a href="https://francis-remoshan.vercel.app/">Francis Remoshan</a>.</sub></p>

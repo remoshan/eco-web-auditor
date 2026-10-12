@@ -81,7 +81,6 @@ export default function HistoryList() {
 
         <div className="recent-grid">
           {entries.map((a) => {
-            const col = gradeColor(a.grade);
             const checked = selected.includes(a.id);
             return (
               <div className={`recent-row${checked ? " selected" : ""}`} key={a.id} onClick={() => navigate(`/audits/${a.id}`)}>
@@ -99,9 +98,7 @@ export default function HistoryList() {
                 </Link>
                 <div className="recent-co2">{formatCO2(a.total_co2)} CO₂</div>
                 <div className="recent-co2">{a.page_weight_mb} MB</div>
-                <div className="grade-chip" style={{ background: `${col}18`, border: `1px solid ${col}40`, color: col }}>
-                  {a.grade}
-                </div>
+                <div className="grade-chip" style={{ color: gradeColor(a.grade) }}>{a.grade}</div>
                 <div className="recent-date">{formatDate(a.audited_at)}</div>
               </div>
             );

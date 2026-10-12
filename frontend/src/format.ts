@@ -27,20 +27,8 @@ export const ISSUES: Record<Asset["issues"][number], { label: string; detail: st
   no_cache: { label: "Not cached", detail: "Files browsers can't reuse for at least a day" },
 };
 
-export const STATUS_COLOR: Record<string, string> = { green: "#34C759", amber: "#FF9F0A", red: "#FF3B30" };
+export const STATUS_COLOR: Record<Asset["status"], string> = { green: "var(--good)", amber: "var(--amber)", red: "var(--red)" };
 
-export function gradeColor(grade: string): string {
-  if (grade === "A+" || grade === "A") return "#34C759";
-  if (grade === "B+" || grade === "B") return "#30D158";
-  if (grade === "C") return "#FF9F0A";
-  if (grade === "D") return "#FF6B30";
-  return "#FF3B30";
-}
+export const gradeColor = (grade: string) => (grade.startsWith("A") || grade.startsWith("B") ? "var(--good)" : grade === "F" ? "var(--red)" : "var(--amber)");
 
-export const TYPE_META: Record<Asset["asset_type"], { label: string; color: string }> = {
-  image: { label: "IMG", color: "#0A84FF" },
-  script: { label: "JS", color: "#FF9F0A" },
-  css: { label: "CSS", color: "#BF5AF2" },
-  font: { label: "TTF", color: "#34C759" },
-  media: { label: "VID", color: "#FF3B30" },
-};
+export const TYPE_LABEL: Record<Asset["asset_type"], string> = { image: "IMG", script: "JS", css: "CSS", font: "FONT", media: "VID" };
