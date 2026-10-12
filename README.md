@@ -4,6 +4,9 @@ A web application that estimates the carbon footprint of any web page **element 
 element**, using the Sustainable Web Design (SWD) model, and cross-checks every result
 with an independently trained regression model.
 
+**Live:** [eco-web-auditor.vercel.app](https://eco-web-auditor.vercel.app) · API on
+[ecoweb-auditor-api.onrender.com](https://ecoweb-auditor-api.onrender.com/health)
+
 ---
 
 ## Table of contents
@@ -15,6 +18,7 @@ with an independently trained regression model.
 - [Tech stack](#tech-stack)
 - [Getting started](#getting-started)
 - [Configuration](#configuration)
+- [Deployment](#deployment)
 - [API reference](#api-reference)
 - [The carbon model](#the-carbon-model)
 - [Verification](#verification)
@@ -39,9 +43,9 @@ script, stylesheet or font** is responsible, or what to do about it.
 EcoWeb Auditor prices each asset separately:
 
 1. Fetch the page and discover every asset it references
-2. Measure each asset's transfer size
+2. Measure each asset's transfer size and read how it is delivered
 3. Convert bytes to CO₂ with the SWD formula, per asset and in total
-4. Grade the page, rank the assets, and attach a concrete fix to each one
+4. Grade the page, rank the assets, and attach a concrete fix and saving to each one
 
 Primary research (n = 31 IT and software engineering professionals and students) found
 that **90.3%** would use a tool with this element-level breakdown.
@@ -50,14 +54,14 @@ that **90.3%** would use a tool with this element-level breakdown.
 
 ## Features
 
-- **Element-level breakdown.** Every image, script, stylesheet and font is priced in CO₂,
-  ranked, and given a concrete fix.
+- **Element-level breakdown.** Every image, script, stylesheet, font and media file is
+  priced in CO₂, ranked, and given a concrete fix.
 - **Potential savings.** Shows how much each fix would save and the grade the page would
   reach once the flagged assets are fixed.
+- **Delivery checks.** Flags text files sent without compression, images still served as
+  JPEG, PNG or GIF, and files browsers can't cache.
 - **Green hosting check.** Shows whether the site's host runs on renewable energy, via The
   Green Web Foundation.
-- **Delivery checks.** Flags text files sent without compression, images still served as
-  JPEG, PNG or GIF, and files browsers can't cache, each with its fix.
 - **ML cross-check.** An independently trained regression model verifies the SWD figure.
 - **History, re-audit and trends.** Audits are saved in your browser. Run one again with a
   click, and see a CO₂ trend line once a site has been audited more than once.
@@ -68,6 +72,8 @@ that **90.3%** would use a tool with this element-level breakdown.
   whole history to move it between devices.
 - **Installable and offline.** Install it as an app on phone or desktop. Saved audits open
   without a connection.
+- **Light and dark themes.** A flat, square design in dark green or light green, following
+  the system setting on the first visit.
 
 ---
 
@@ -77,25 +83,29 @@ that **90.3%** would use a tool with this element-level breakdown.
 graph TB
     User(["Browser"])
 
-    subgraph Frontend["frontend — React SPA (UI only)"]
+    subgraph Frontend["frontend · React SPA on Vercel (UI only)"]
         UI["Pages<br/>home · result · compare · about"]
         IDB[("IndexedDB<br/>audit history")]
+        SW[["Service worker<br/>offline app shell"]]
     end
 
-    subgraph Backend["backend — FastAPI (stateless)"]
-        API["routes.py<br/>validation · rate limit"]
-        SVC["services<br/>scraper · carbon · compare · predictor"]
+    subgraph Backend["backend · FastAPI on Render (stateless)"]
+        API["routes.py<br/>validation · rate limit · cache"]
+        SVC["services<br/>audit · scraper · carbon · compare · predictor"]
         ML[/"ml/model.json"/]
     end
 
     Web(("Audited website"))
+    GWF(("Green Web Foundation"))
 
     User --> UI
     UI <--> IDB
-    UI -->|"POST /api/audit<br/>POST /api/compare<br/>GET /api/methodology"| API
+    UI --- SW
+    UI -->|"GET /health (wake-up)<br/>POST /api/audit<br/>POST /api/compare<br/>GET /api/methodology"| API
     API --> SVC
     SVC --- ML
     SVC -->|"GET page · HEAD assets"| Web
+    SVC -->|"greencheck"| GWF
 ```
 
 The split is strict. **All validation, calculation and comparison happen in the
@@ -103,7 +113,7 @@ backend.** The frontend renders results and keeps history, and nothing else.
 
 The backend is **stateless** and has no database. Each visitor's audit history lives in
 their own browser (IndexedDB), so it is private by construction: no visitor can see
-another visitor's audits, and the server stores nothing.
+another visitor's audits, and the server stores nothing beyond a 10-minute result cache.
 
 ---
 
@@ -129,17 +139,20 @@ sequenceDiagram
         S->>W: GET page HTML
         S->>S: parse img, script, link, @font-face
         S->>W: HEAD each asset, 12 at a time (Range GET fallback)
+        S->>S: response headers → size, type, delivery issues
         S-->>A: html size + sized assets
     end
     A->>A: CO₂ per asset → status → tip → potential saving
     A->>A: total CO₂ → grade, score, rating · potential grade
-    A->>A: group by type · ML cross-check
-    A-->>B: 200 { id, grade, assets, potential, green_hosting, … }
+    A->>A: group by type · count delivery issues · ML cross-check
+    A-->>B: 200 { id, grade, assets, potential, delivery, green_hosting, … }
     B->>B: save to IndexedDB · route to /audits/:id
 ```
 
 Every request the scraper makes, including each redirect hop and each asset request,
-passes through the same private-address guard.
+passes through the same private-address guard. Only the asset tags are parsed, which cut
+parsing Wikipedia's 1 MB article page from 282 ms to 187 ms in local tests, with identical
+results.
 
 ---
 
@@ -148,18 +161,20 @@ passes through the same private-address guard.
 | Layer | Choice | Notes |
 |---|---|---|
 | API | FastAPI + Pydantic v2 | Request/response contracts double as the OpenAPI schema |
-| Scraping | httpx (async) + BeautifulSoup | Built-in `html.parser`, so there's no native dependency |
+| Scraping | httpx (async) + BeautifulSoup | Built-in `html.parser` with a `SoupStrainer`; no native dependency |
 | ML inference | Plain Python | Model exported to JSON; no scikit-learn or NumPy at runtime |
 | Frontend | React 19 + TypeScript 5.9 | `strict` enabled |
 | Build | Vite 8 | Route-level code splitting |
 | Routing | React Router 8 | `/`, `/audits/:id`, `/compare/:a/:b`, `/about` |
-| Charts | Chart.js 4 | Tree-shaken, only the controllers that are used |
+| Charts | Plain CSS + inline SVG | Flat bars and a trend line; no chart library |
 | History | IndexedDB via `idb-keyval` | About 600 bytes |
 | API types | `openapi-typescript` | Generated from the backend schema |
 | Offline | `vite-plugin-pwa` (Workbox) | Generated service worker and web app manifest |
 | CI | GitHub Actions + Dependabot | Tests and production build on every PR |
+| Hosting | Vercel + Render | Frontend and backend deploy from `main` |
 
-The backend runs on **Python 3.12–3.14** with six direct dependencies.
+The backend runs on **Python 3.12–3.14** with six direct dependencies. The frontend has
+four runtime dependencies: React, React DOM, React Router and `idb-keyval`.
 
 ---
 
@@ -202,9 +217,9 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:5173**. The Vite dev server proxies `/api` to port 8000, so no
-CORS or environment setup is needed. It also listens on the local network: open the
-printed `Network` address on a phone to test on a real device.
+Open **http://localhost:5173**. The Vite dev server proxies `/api` and `/health` to port
+8000, so no CORS or environment setup is needed. It also listens on the local network:
+open the printed `Network` address on a phone to test on a real device.
 
 ### Scripts
 
@@ -224,13 +239,15 @@ There are **no `.env` files**. Every setting has a working default in
 `backend/app/config.py`; to override one, set an environment variable with the same name
 before starting the backend.
 
+Windows PowerShell:
+
 ```bash
-# Windows PowerShell
 $env:ALLOW_PRIVATE_URLS = "true"
 ```
 
+macOS / Linux:
+
 ```bash
-# macOS / Linux
 export ALLOW_PRIVATE_URLS=true
 ```
 
@@ -242,14 +259,28 @@ export ALLOW_PRIVATE_URLS=true
 | `SCRAPER_TIMEOUT` | `30` | Seconds to wait for the audited page |
 | `MAX_ASSETS_PER_PAGE` | `80` | Upper bound on assets sized per audit |
 
-The frontend needs no configuration. It calls relative `/api` URLs when served from
-`localhost` and the deployed API everywhere else.
+The frontend needs no configuration. It calls relative URLs when served from `localhost`
+and the deployed API everywhere else.
+
+---
+
+## Deployment
+
+| Part | Host | How |
+|---|---|---|
+| Frontend | Vercel | Builds `frontend/` with the settings in `frontend/vercel.json`, which also rewrites every route to the SPA and redirects the old `.html` URLs |
+| Backend | Render (free instance) | Serves `backend/` with uvicorn; needs no environment variables because the defaults in `config.py` are the production values |
+| Checks | GitHub Actions | Runs the tests and the production build on every pull request and every push to `main` |
+
+Both hosts deploy automatically when `main` changes. The free Render instance sleeps when
+idle; see [Cold starts](#cold-starts) for how the frontend hides that.
 
 ---
 
 ## API reference
 
-Interactive documentation is served at **http://localhost:8000/docs**.
+Interactive documentation is served by the backend at **`/docs`** (for example
+http://localhost:8000/docs). The app itself doesn't link to it.
 
 ### `POST /api/audit`
 
@@ -268,27 +299,27 @@ Responds `200 OK` (arrays shortened):
 {
   "id": "1dc99a8a-40f8-4d0d-a70d-d6ce3aa3f3f9",
   "url": "https://example.com/",
-  "audited_at": "2026-09-29T20:11:25.907383Z",
+  "audited_at": "2026-10-13T20:11:25.907383Z",
   "grade": "A+",
   "score": 96,
   "rating": "Sustainable",
-  "total_co2": 0.001,
-  "annual_co2_kg": 0.123,
+  "total_co2": 0.0009,
+  "annual_co2_kg": 0.109,
   "trees_to_offset": 0.0,
-  "total_bytes": 2866,
+  "total_bytes": 2540,
   "page_weight_mb": 0.0,
   "request_count": 1,
   "comparison": "Less than 1 metre driven in a petrol car per page load",
   "categories": [
-    { "name": "Script", "count": 1, "total_bytes": 2153, "total_co2": 0.0008, "percentage": 75.1 }
+    { "name": "Script", "count": 1, "total_bytes": 1963, "total_co2": 0.0007, "percentage": 77.3 }
   ],
   "assets": [
     {
       "name": "s.js",
       "url": "https://example.com/s.js",
       "asset_type": "script",
-      "size_bytes": 2153,
-      "co2_grams": 0.000771,
+      "size_bytes": 1963,
+      "co2_grams": 0.000703,
       "saving_co2_grams": 0.0,
       "status": "green",
       "issues": ["no_cache"],
@@ -296,13 +327,13 @@ Responds `200 OK` (arrays shortened):
     }
   ],
   "ml_prediction": {
-    "predicted_co2_grams": 0.001027,
+    "predicted_co2_grams": 0.00091,
     "model_name": "Linear Regression",
     "r2_score": 0.9964,
     "difference_pct": 0.1,
     "agreement": "close"
   },
-  "potential": { "total_co2": 0.001, "grade": "A+", "score": 96, "saving_pct": 0.0 },
+  "potential": { "total_co2": 0.0009, "grade": "A+", "score": 96, "saving_pct": 0.0 },
   "green_hosting": { "green": true, "hosted_by": "Cloudflare" },
   "delivery": { "uncompressed": 0, "legacy_format": 0, "no_cache": 1 }
 }
@@ -314,12 +345,13 @@ of the SWD figure, and `divergent` otherwise.
 
 `saving_co2_grams` estimates what fixing an asset would save, and `potential` is the page
 after every flagged asset is fixed (see [Potential savings](#potential-savings)).
-`green_hosting` comes from The Green Web Foundation and is `null` when the lookup fails. It
-is informational only and never changes the grade.
 
 `issues` lists what the asset's response headers reveal: `uncompressed`, `legacy_format` or
 `no_cache` (see [Delivery checks](#delivery-checks-from-response-headers)). `delivery` counts
 each across the page.
+
+`green_hosting` comes from The Green Web Foundation and is `null` when the lookup fails. It
+is informational only and never changes the grade.
 
 The server does not store the result. The frontend saves it to IndexedDB and the `id`
 becomes the `/audits/:id` route.
@@ -340,16 +372,17 @@ Compares two audit results taken from the browser's history.
 ```
 
 The request can arrive in either order, because the server orders the two audits by
-`audited_at`. It returns the older and newer summaries, a verdict and summary sentence,
-and one row per metric and per asset category:
+`audited_at`. The frontend sends them without their `assets` arrays, since only the totals
+and categories are compared. The response holds the older and newer summaries, a verdict and
+summary sentence, and one row per metric and per asset category:
 
 ```json
 {
   "verdict": "worse",
-  "summary": "Audit B emits 14120% more CO₂ per visit than Audit A.",
+  "summary": "Audit B emits 14622% more CO₂ per visit than Audit A.",
   "metrics": [
     { "key": "score", "label": "Score", "older": 96, "newer": 88, "change_pct": -8, "direction": "down", "verdict": "worse" },
-    { "key": "total_co2", "label": "CO₂ per visit", "older": 0.001, "newer": 0.1422, "change_pct": 14120, "direction": "up", "verdict": "worse" }
+    { "key": "total_co2", "label": "CO₂ per visit", "older": 0.0009, "newer": 0.1325, "change_pct": 14622, "direction": "up", "verdict": "worse" }
   ],
   "categories": [ "..." ]
 }
@@ -361,13 +394,13 @@ compare against.
 ### `GET /api/methodology`
 
 Returns the SWD constants, the grade and rating thresholds, the asset-status thresholds,
-the savings rates and the ML model's evaluation metrics, read straight from the code. The About page renders
-its formula and grade scale from this endpoint, so the documentation can't drift from
-the implementation.
+the savings rates, the compression saving and the ML model's evaluation metrics, read
+straight from the code. The About page renders its formula and grade scale from this
+endpoint, so the documentation can't drift from the implementation.
 
 ### `GET /health`
 
-Liveness check.
+Liveness check. The frontend also calls it on load to wake the server.
 
 ---
 
@@ -444,7 +477,7 @@ python -m unittest discover tests
 ```
 
 ```
-Ran 17 tests in 0.181s
+Ran 17 tests in 0.150s
 
 OK
 ```
@@ -456,8 +489,8 @@ The tests cover:
 - Grade and rating boundaries
 - Compare ordering and verdicts
 - ML model parity with the original scikit-learn predictions
-- A full audit pipeline run validated against the response schema, including savings and
-  the potential grade
+- A full audit pipeline run validated against the response schema, including savings,
+  the compression saving, the potential grade and the delivery counts
 - The green hosting lookup, including failure returning "unknown"
 - The audit cache, and `refresh` bypassing it
 - The delivery checks: compression, legacy image formats and cache lifetimes, with the
@@ -465,10 +498,10 @@ The tests cover:
 
 ### Continuous integration
 
-GitHub Actions runs the unit tests and the strict TypeScript production build on every pull
-request and every push to `main`, so a broken change is caught before Render or Vercel
-deploys it. Dependabot opens one grouped update a month each for the backend, the frontend
-and the workflow actions, and CI checks those too.
+GitHub Actions runs the unit tests (Python 3.12) and the strict TypeScript production build
+(Node 24) on every pull request and every push to `main`, so a broken change is caught
+before Render or Vercel deploys it. Dependabot opens one grouped update a month each for
+the backend, the frontend and the workflow actions, and CI checks those too.
 
 ### A real audit
 
@@ -479,11 +512,12 @@ curl -X POST http://localhost:8000/api/audit -H "Content-Type: application/json"
 ```
 url            https://python.org/
 grade          A  (score 88, Sustainable)
-total_co2      0.1422 g per visit
-page weight    0.38 MB across 15 requests
-categories     Css 39.9% · Script 38.4% · Image 8.4%
-ml_prediction  0.142191 g  (difference 0.0%, agreement: close)
-potential      0.0953 g, still grade A (32.9% of the page weight is savable)
+total_co2      0.1325 g per visit
+page weight    0.35 MB across 14 requests
+categories     CSS 42.8% · Script 34.1% · Image 9.0%
+ml_prediction  0.132465 g  (difference 0.0%, agreement: close)
+potential      0.0857 g, grade A+ (35.3% of the page weight is savable)
+delivery       1 image in a legacy format, everything compressed and cached
 green_hosting  not verified green
 ```
 
@@ -514,21 +548,22 @@ retry-after: 60
 
 ### Frontend
 
-Checked at 375 px, 768 px and 1280 px in both themes:
+Checked at 375 px, 768 px, 1280 px and 1440 px in both themes:
 - Auditing a site, reopening it from history, and refreshing on `/audits/:id`
-- The savings card, per-asset savings and the green hosting pill
+- The breakdown bars, savings card, delivery checks, per-asset savings and green hosting pill
 - "Run again" forcing a fresh scan, and the trend line appearing for the second audit
 - Opening a copied `/?url=` link reusing the cached report without a duplicate history row,
   going back without re-auditing, and a blocked URL showing its error with the field filled in
 - Downloading JSON, and exporting, clearing and re-importing history (re-imports don't
   duplicate, and files older than 7 days or the wrong shape are rejected clearly)
-- Opening audits saved before these features existed
+- Comparing two audits, and the About page's grade scale loading from the API
 - With the production bundle (`npm run preview`): the service worker registers and
-  precaches the app, and after stopping both servers a saved audit still opens with its
-  charts, the About page loads, and a new audit shows the offline message
-- Comparing two audits and the About page
+  precaches the app, and after stopping both servers a saved audit still opens in full,
+  the About page loads, and a new audit shows the offline message
 - A slow backend shows the "waking the server" notice on the home and loading screens, and a
   warm one never does
+- The nav, page content and footer share the same edges at every width, and the metric
+  cards' labels, values and footers line up
 - Empty and error states
 
 All pages were free of horizontal overflow and console errors, and `npm run build` is
@@ -568,13 +603,6 @@ The audited hostname is sent to The Green Web Foundation's public greencheck API
 page is being scraped, so the lookup adds no time. It has its own 5-second timeout and any
 failure is reported as unknown rather than failing the audit.
 
-### Cold starts
-
-The free Render instance sleeps when idle, and waking it takes up to a minute. The frontend
-pings `/health` as soon as any page loads, so the server is usually awake by the time an audit
-is submitted. If the ping hasn't answered within two seconds, a notice explains the wait
-instead of leaving the loading steps stalled.
-
 ### Delivery checks from response headers
 
 The scraper already sends a HEAD request for every asset to size it, so the checks cost no
@@ -588,12 +616,19 @@ extra requests. The response headers decide three flags:
 
 Asset requests send the `Accept` header a browser sends for images. Image CDNs such as
 Shopify's, The Guardian's and Wikimedia's choose WebP or AVIF from that header; without it
-they returned JPEG or PNG, so the format check would have been wrong and those pages were
-being measured far heavier than visitors receive (shopify.com went from 4.29 g to 1.38 g).
-Sites that don't negotiate measure exactly as before.
+they return JPEG or PNG, so the format check would be wrong and those pages would be
+measured far heavier than visitors receive (shopify.com measured 4.29 g before this and
+about 1.3 g after).
 
 Compression is only judged from a successful HEAD. If a server rejects HEAD, the flag is
 skipped rather than guessed from the one-byte range request, which servers never compress.
+
+### Cold starts
+
+The free Render instance sleeps when idle, and waking it takes up to a minute. The frontend
+pings `/health` as soon as any page loads, so the server is usually awake by the time an audit
+is submitted. If the ping hasn't answered within two seconds, a notice explains the wait
+instead of leaving the loading steps stalled.
 
 ### Shareable links without storage
 
@@ -609,14 +644,14 @@ back doesn't start the audit again.
 The model was trained with scikit-learn (`StandardScaler` + `LinearRegression`), which
 pulls in scikit-learn, NumPy, SciPy and joblib, over 100 MB, just to evaluate one dot
 product. The fitted coefficients, intercept, scaler means and scales, and feature order
-were exported to a 2 KB `model.json`. A prediction is now:
+were exported to a 2 KB `model.json`. A prediction is:
 
 ```
 Σ coef · (x − mean) / scale + intercept
 ```
 
 in plain Python. Predictions match the original model exactly on real audits (a unit test
-pins this), and backend memory fell from **177 MB to 81 MB**.
+pins this), and backend memory fell from **177 MB to 81 MB** when scikit-learn was removed.
 
 ### Readable validation
 
@@ -640,27 +675,42 @@ a report needs before anything is written.
 renamed in the backend, regenerating the types makes the TypeScript build fail, instead of
 the UI silently rendering `undefined`.
 
+### Flat design
+
+The interface is deliberately plain: solid colours, square corners, no gradients, shadows,
+blur or decorative effects. Every colour is a CSS variable with one set for the dark-green
+theme and one for the light-green theme, so switching themes is a single attribute change
+on `<html>` and nothing is redrawn. Amber and red appear only where they mean a problem
+(weak grades, critical assets, delivery flags).
+
+Charts are plain CSS bars and an inline SVG trend line, so there is no chart library to
+download. The nav, pages and footer share one content width through a single `--edge`
+variable, which keeps their edges aligned at every screen size.
+
 ### Built for every device
 
-- Route-level code splitting keeps Chart.js out of the first download
+- Route-level code splitting loads each page only when it is opened; the results page is
+  about 10 KB
 - Touch targets are at least 44 px on coarse pointers
 - Safe-area insets are respected on notched phones
 - Inputs are 16 px, so iOS doesn't zoom in on focus
 - `prefers-reduced-motion` disables animation
-- The first-visit theme follows `prefers-color-scheme`
-- Charts are destroyed when their view unmounts and redrawn when the theme changes
+- The first-visit theme follows `prefers-color-scheme`, and the choice is remembered
 
 ### Installable and offline
 
 `vite-plugin-pwa` generates the web app manifest and a Workbox service worker at build time.
-The service worker precaches the app shell and every route's chunk, about 540 KB, after the
+The service worker precaches the app shell and every route's chunk, about 370 KB, after the
 first page has loaded, so it never slows the first render. Navigations fall back to the
 cached `index.html`, which lets saved audits open offline straight from IndexedDB. API
 calls are never cached.
 
-Updates install automatically on the next visit, and outdated caches are cleaned up. The
-icons, including a full-bleed maskable icon for Android and a touch icon for iOS, were
-generated once from `favicon.svg` and are committed as static files.
+Updates install automatically on the next visit, and outdated caches are cleaned up.
+
+The two-leaf logo is a single SVG path. In the app it takes the theme's text colour, the
+favicon switches between dark and light with the system theme, and the app icons (including
+a full-bleed maskable icon for Android and a touch icon for iOS) were rendered once from the
+same path and are committed as static files.
 
 ---
 
@@ -672,17 +722,17 @@ generated once from `favicon.svg` and are committed as static files.
 └── dependabot.yml           monthly grouped dependency updates
 
 backend/
-├── main.py                  app setup, CORS, validation-error handler
+├── main.py                  app setup, CORS, validation-error handler, /health
 ├── requirements.txt
 ├── app/
-│   ├── config.py            settings with local defaults
+│   ├── config.py            settings with production defaults
 │   ├── schemas.py           request and response models
-│   ├── routes.py            /api endpoints + rate limit
+│   ├── routes.py            /api endpoints, rate limit, audit cache
 │   ├── ml/model.json        exported regression model
 │   └── services/
 │       ├── audit.py         pipeline: scrape → price → group → cross-check
-│       ├── scraper.py       async fetcher + private-address guard
-│       ├── carbon.py        SWD maths, grades, ratings, tips, methodology
+│       ├── scraper.py       async fetcher, private-address guard, delivery checks, green lookup
+│       ├── carbon.py        SWD maths, grades, ratings, savings, tips, methodology
 │       ├── compare.py       ordering, % change, verdicts, summary
 │       └── predictor.py     feature builder + JSON linear model
 └── tests/test_logic.py      stdlib unittest suite
@@ -694,14 +744,17 @@ frontend/
 ├── public/                  favicon and app icons
 └── src/
     ├── main.tsx             router with lazy-loaded routes
-    ├── App.tsx              layout, navigation, theme
+    ├── App.tsx              layout, logo, navigation, theme toggle
     ├── api.ts               fetch wrapper for the endpoints, wake-up ping
     ├── api-types.ts         generated from OpenAPI
-    ├── history.ts           IndexedDB history
-    ├── format.ts            display formatting and colours
-    ├── styles.css           design tokens, both themes, responsive rules
+    ├── history.ts           IndexedDB history, import and export
+    ├── format.ts            display formatting, labels and status colours
+    ├── styles.css           theme variables, layout, responsive and print rules
     ├── pages/               Home, AuditResult, Compare, About
-    └── components/          Charts, HistoryList
+    └── components/          HistoryList
+
+LICENSE
+README.md
 ```
 
 ---
@@ -759,4 +812,4 @@ Released under the [MIT License](LICENSE). Copyright (c) 2026 Francis Remoshan.
 
 ---
 
-<p align="center"><sub>Built as a BSc (Hons) Software Engineering final year project at the University of Bedfordshire.</sub></p>
+<p align="center"><sub>Built by <a href="https://francis-remoshan.vercel.app/">Francis Remoshan</a>.</sub></p>

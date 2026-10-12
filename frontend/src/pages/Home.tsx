@@ -81,23 +81,15 @@ export default function Home() {
 
   return (
     <>
-      {error && <div className="error-banner" role="alert">⚠ {error}</div>}
+      {error && <div className="error-banner" role="alert">{error}</div>}
 
       <section className="hero">
-        <div className="badge badge-green">Digital Sustainability Audit · SWD Model</div>
-        <h1 className="hero-title">
-          Your website has a<br />
-          <span className="gradient-text">carbon footprint.</span>
-        </h1>
+        <h1 className="hero-title">Your website has a<br />carbon footprint.</h1>
         <p className="hero-sub">
-          Audit every image, script, and stylesheet. Discover exactly which elements are costing the planet — and how to fix them.
+          Audit every image, script and stylesheet. See which elements cost the most CO₂ and how to fix them.
         </p>
 
         <form className={`search-wrap${shake ? " shake" : ""}`} onSubmit={submit}>
-          <svg className="search-icon" width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
-            <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.4" />
-            <path d="M10 10L13 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          </svg>
           <input
             type="text"
             inputMode="url"
@@ -113,19 +105,6 @@ export default function Home() {
         </form>
         {waking && <Waking />}
 
-        <div className="stats-strip">
-          {[
-            ["3.7%", "of global GHG emissions from ICT"],
-            ["90.3%", "of developers want element-level data"],
-            ["83.9%", "already optimise for loading speed"],
-            ["A+–F", "sustainability grade per page"],
-          ].map(([val, lbl]) => (
-            <div className="stat-item" key={val}>
-              <div className="stat-val">{val}</div>
-              <div className="stat-lbl">{lbl}</div>
-            </div>
-          ))}
-        </div>
       </section>
 
       <HistoryList />
@@ -148,11 +127,6 @@ function Loading({ url, waking }: { url: string; waking: boolean }) {
   return (
     <section className="loading-section" aria-live="polite">
       <div className="loading-inner">
-        <div className="loading-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="2" strokeDasharray="6 4" />
-          </svg>
-        </div>
         <div className="section-label">Scanning</div>
         <div className="loading-url">{url}</div>
         <div className="loading-steps">
@@ -163,7 +137,7 @@ function Loading({ url, waking }: { url: string; waking: boolean }) {
                 <div className={`step-dot ${state}`}>
                   {state === "done" && (
                     <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                      <path d="M1.5 4L3.2 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M1.5 4L3.2 6L6.5 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                   {state === "active" && <div className="pulse" />}

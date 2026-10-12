@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, SoupStrainer
 
 from app.config import settings
 
@@ -21,6 +21,7 @@ LEGACY_IMAGES = ("image/jpeg", "image/png", "image/gif", "image/bmp")
 MIN_CHECK_BYTES = 1_024
 MIN_LEGACY_BYTES = 10_240
 MIN_CACHE_SECONDS = 86_400
+ASSET_TAGS = SoupStrainer(["img", "script", "link", "style"])
 PRELOAD_TYPES = {"font": "font", "script": "script", "style": "css", "image": "image"}
 FONT_URL = re.compile(r"url\(['\"]?(https?://[^'\")\s]+\.(?:woff2?|ttf|otf|eot)(?:\?[^'\")\s]*)?)['\"]?\)", re.I)
 CONTENT_TYPES = [("image", "image"), ("javascript", "script"), ("ecmascript", "script"), ("css", "css"),
@@ -47,7 +48,7 @@ async def reject_private_hosts(request: httpx.Request) -> None:
 
 
 def extract_assets(html: str, base_url: str) -> dict[str, str]:
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(html, "html.parser", parse_only=ASSET_TAGS)
     assets: dict[str, str] = {}
 
     def add(url: str, asset_type: str) -> None:

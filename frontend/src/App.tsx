@@ -1,19 +1,11 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet, ScrollRestoration, useOutletContext } from "react-router";
-import { API_ORIGIN } from "./api";
-
-type Theme = "light" | "dark";
-
-export const useTheme = () => useOutletContext<Theme>();
+import { Link, NavLink, Outlet, ScrollRestoration } from "react-router";
 
 function Logo() {
   return (
-    <div className="nav-logo-icon" aria-hidden="true">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M7 1C7 1 2 4.5 2 8.5C2 11.2 4.2 13 7 13C9.8 13 12 11.2 12 8.5C12 4.5 7 1 7 1Z" stroke="white" strokeWidth="1.4" />
-        <path d="M7 6V10M5 8H9" stroke="white" strokeWidth="1.4" strokeLinecap="round" />
-      </svg>
-    </div>
+    <svg className="logo" width="26" height="26" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+      <path d="M14.3 30.5C14.5 25 15.3 20 17.5 15.4L18.9 16C16.9 20.6 16.3 25.2 16.3 30.5Z M17.2 17.4C15.4 10.2 19.4 3.4 28.2 1.6C29.6 10.4 25.4 16.6 17.2 17.4Z M19.4 15.4Q22.6 10.4 25.6 5Q21 9.3 19.4 15.4Z M15.4 22C8.6 22 4.2 16.8 3.6 9.2C10.8 9.6 15.7 14.2 15.4 22Z M14.6 19.8Q12 14.6 7 12.2Q10.8 16 14.6 19.8Z" />
+    </svg>
   );
 }
 
@@ -40,7 +32,7 @@ export function Missing({ text }: { text: string }) {
 }
 
 export default function App() {
-  const [theme, setTheme] = useState<Theme>(() => (document.documentElement.dataset.theme === "light" ? "light" : "dark"));
+  const [theme, setTheme] = useState(() => (document.documentElement.dataset.theme === "light" ? "light" : "dark"));
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
@@ -53,9 +45,6 @@ export default function App() {
 
   return (
     <>
-      <div className="orb orb-1" />
-      <div className="orb orb-2" />
-
       <nav className="nav">
         <Link className="nav-logo" to="/">
           <Logo />
@@ -80,25 +69,25 @@ export default function App() {
       </nav>
 
       <main>
-        <Outlet context={theme} />
+        <Outlet />
       </main>
 
       <footer>
         <div className="footer-inner">
-          <div className="footer-logo">
-            <Logo />
-            <span>EcoWeb Auditor</span>
+          <div>
+            <div className="footer-logo">
+              <Logo />
+              <span>EcoWeb Auditor</span>
+            </div>
+            <p className="footer-text">
+              Carbon calculations use the{" "}
+              <a href="https://sustainablewebdesign.org/" target="_blank" rel="noreferrer">Sustainable Web Design</a> model.<br />
+              Built by <a href="https://francis-remoshan.vercel.app/" target="_blank" rel="noreferrer">Francis Remoshan</a>.
+            </p>
           </div>
-          <p className="footer-text">
-            BSc (Hons) Software Engineering · Final Year Project<br />
-            Wilson Francis Remoshan (2541691) · University of Bedfordshire<br />
-            Carbon calculations use the{" "}
-            <a href="https://sustainablewebdesign.org/" target="_blank" rel="noreferrer">Sustainable Web Design</a> model.
-          </p>
           <div className="footer-links">
             <Link to="/">Auditor</Link>
             <Link to="/about">About</Link>
-            <a href={`${API_ORIGIN}/docs`} target="_blank" rel="noreferrer">API Docs</a>
           </div>
         </div>
       </footer>

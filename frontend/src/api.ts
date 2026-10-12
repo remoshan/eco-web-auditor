@@ -3,13 +3,12 @@ import type { components } from "./api-types";
 type Schemas = components["schemas"];
 export type Audit = Schemas["AuditResponse"];
 export type Asset = Schemas["AssetInfo"];
-export type Category = Schemas["CategoryBreakdown"];
 export type Comparison = Schemas["CompareResponse"];
 export type CompareRow = Schemas["CompareRow"];
 export type Methodology = Schemas["Methodology"];
 
 const LOCAL = import.meta.env.DEV || ["localhost", "127.0.0.1"].includes(location.hostname);
-export const API_ORIGIN = LOCAL ? "" : "https://ecoweb-auditor-api.onrender.com";
+const API_ORIGIN = LOCAL ? "" : "https://ecoweb-auditor-api.onrender.com";
 export const serverAwake = fetch(API_ORIGIN + "/health").then(() => {}, () => {});
 
 async function request<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
