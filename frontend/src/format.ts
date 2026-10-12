@@ -21,6 +21,12 @@ export function formatDate(iso: string): string {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
+export const ISSUES: Record<Asset["issues"][number], { label: string; detail: string }> = {
+  uncompressed: { label: "Not compressed", detail: "Text files sent without Brotli or gzip" },
+  legacy_format: { label: "Old image format", detail: "Images served as JPEG, PNG or GIF, not WebP or AVIF" },
+  no_cache: { label: "Not cached", detail: "Files browsers can't reuse for at least a day" },
+};
+
 export const STATUS_COLOR: Record<string, string> = { green: "#34C759", amber: "#FF9F0A", red: "#FF3B30" };
 
 export function gradeColor(grade: string): string {

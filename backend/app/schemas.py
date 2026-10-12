@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 Verdict = Literal["better", "worse", "same"]
+Issue = Literal["uncompressed", "legacy_format", "no_cache"]
 
 
 class AuditRequest(BaseModel):
@@ -26,6 +27,7 @@ class AssetInfo(BaseModel):
     co2_grams: float
     saving_co2_grams: float
     status: Literal["green", "amber", "red"]
+    issues: list[Issue]
     optimization_tip: str
 
 
@@ -50,6 +52,12 @@ class Potential(BaseModel):
     grade: str
     score: int
     saving_pct: float
+
+
+class DeliveryChecks(BaseModel):
+    uncompressed: int
+    legacy_format: int
+    no_cache: int
 
 
 class GreenHosting(BaseModel):
@@ -82,6 +90,7 @@ class AuditResponse(AuditSummary):
     ml_prediction: MLPrediction
     potential: Potential
     green_hosting: GreenHosting | None
+    delivery: DeliveryChecks
 
 
 class CompareRequest(BaseModel):
@@ -139,4 +148,5 @@ class Methodology(BaseModel):
     ratings: list[RatingBand]
     asset_status: dict[str, dict[str, int]]
     savings_rates: dict[str, dict[str, float]]
+    compression_saving: float
     ml_model: ModelInfo

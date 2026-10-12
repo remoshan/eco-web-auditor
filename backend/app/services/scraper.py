@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import ipaddress
 import re
+from collections.abc import Mapping
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -15,6 +16,11 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
 }
+ASSET_HEADERS = {"Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"}
+LEGACY_IMAGES = ("image/jpeg", "image/png", "image/gif", "image/bmp")
+MIN_CHECK_BYTES = 1_024
+MIN_LEGACY_BYTES = 10_240
+MIN_CACHE_SECONDS = 86_400
 PRELOAD_TYPES = {"font": "font", "script": "script", "style": "css", "image": "image"}
 FONT_URL = re.compile(r"url\(['\"]?(https?://[^'\")\s]+\.(?:woff2?|ttf|otf|eot)(?:\?[^'\")\s]*)?)['\"]?\)", re.I)
 CONTENT_TYPES = [("image", "image"), ("javascript", "script"), ("ecmascript", "script"), ("css", "css"),
@@ -70,19 +76,33 @@ def extract_assets(html: str, base_url: str) -> dict[str, str]:
     return assets
 
 
+def delivery_issues(asset_type: str, size: int, headers: Mapping[str, str], encoded: bool) -> list[str]:
+    content_type, cache = headers.get("content-type", "").lower(), headers.get("cache-control", "").lower()
+    max_age = re.search(r"max-age=(\d+)", cache)
+    cached = int(max_age[1]) >= MIN_CACHE_SECONDS if max_age else "expires" in headers
+    return [issue for issue, found in (
+        ("uncompressed", not encoded and size >= MIN_CHECK_BYTES
+         and (asset_type in ("script", "css") or "svg" in content_type)),
+        ("legacy_format", size >= MIN_LEGACY_BYTES and content_type.startswith(LEGACY_IMAGES)),
+        ("no_cache", size >= MIN_CHECK_BYTES and ("no-store" in cache or "no-cache" in cache or not cached)),
+    ) if found]
+
+
 async def size_asset(client: httpx.AsyncClient, url: str, asset_type: str) -> dict:
-    size, content_type = 0, ""
+    size, headers, encoded = 0, httpx.Headers(), True
     with contextlib.suppress(Exception):
-        response = await client.head(url, timeout=8)
+        response = await client.head(url, headers=ASSET_HEADERS, timeout=8)
+        encoded = not response.is_success or response.headers.get("content-encoding", "identity") != "identity"
         length = response.headers.get("content-length", "")
         if not length.isdigit():
-            response = await client.get(url, headers={"Range": "bytes=0-0"}, timeout=8)
+            response = await client.get(url, headers={**ASSET_HEADERS, "Range": "bytes=0-0"}, timeout=8)
             length = response.headers.get("content-range", "").rpartition("/")[2]
         size = int(length) if length.isdigit() else 0
-        content_type = response.headers.get("content-type", "").lower()
+        headers = response.headers
+    content_type = headers.get("content-type", "").lower()
     asset_type = next((kind for key, kind in CONTENT_TYPES if key in content_type), asset_type)
     return {"url": url, "name": urlparse(url).path.rstrip("/").split("/")[-1] or "unknown", "asset_type": asset_type,
-            "size_bytes": size}
+            "size_bytes": size, "issues": delivery_issues(asset_type, size, headers, encoded)}
 
 
 async def check_green_hosting(url: str) -> dict | None:

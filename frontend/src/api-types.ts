@@ -75,6 +75,7 @@ export interface components {
             co2_grams: number;
             saving_co2_grams: number;
             status: "green" | "amber" | "red";
+            issues: ("uncompressed" | "legacy_format" | "no_cache")[];
             optimization_tip: string;
         };
         AuditRequest: {
@@ -100,6 +101,7 @@ export interface components {
             ml_prediction: components["schemas"]["MLPrediction"];
             potential: components["schemas"]["Potential"];
             green_hosting: components["schemas"]["GreenHosting"] | null;
+            delivery: components["schemas"]["DeliveryChecks"];
         };
         AuditSummary: {
             id: string;
@@ -149,6 +151,11 @@ export interface components {
             score: number;
             total_co2: number;
         };
+        DeliveryChecks: {
+            uncompressed: number;
+            legacy_format: number;
+            no_cache: number;
+        };
         GradeBand: {
             grade: string;
             max_co2: number | null;
@@ -186,6 +193,7 @@ export interface components {
                     [key: string]: number;
                 };
             };
+            compression_saving: number;
             ml_model: components["schemas"]["ModelInfo"];
         };
         ModelInfo: {

@@ -56,6 +56,8 @@ that **90.3%** would use a tool with this element-level breakdown.
   reach once the flagged assets are fixed.
 - **Green hosting check.** Shows whether the site's host runs on renewable energy, via The
   Green Web Foundation.
+- **Delivery checks.** Flags text files sent without compression, images still served as
+  JPEG, PNG or GIF, and files browsers can't cache, each with its fix.
 - **ML cross-check.** An independently trained regression model verifies the SWD figure.
 - **History, re-audit and trends.** Audits are saved in your browser. Run one again with a
   click, and see a CO₂ trend line once a site has been audited more than once.
@@ -289,7 +291,8 @@ Responds `200 OK` (arrays shortened):
       "co2_grams": 0.000771,
       "saving_co2_grams": 0.0,
       "status": "green",
-      "optimization_tip": "Script is well-sized. Ensure it is deferred if non-critical and served with Brotli compression for best transfer efficiency."
+      "issues": ["no_cache"],
+      "optimization_tip": "Not cached for at least a day. Give versioned files a long Cache-Control max-age so repeat visits skip the download. Script is well-sized. ..."
     }
   ],
   "ml_prediction": {
@@ -300,7 +303,8 @@ Responds `200 OK` (arrays shortened):
     "agreement": "close"
   },
   "potential": { "total_co2": 0.001, "grade": "A+", "score": 96, "saving_pct": 0.0 },
-  "green_hosting": { "green": true, "hosted_by": "Cloudflare" }
+  "green_hosting": { "green": true, "hosted_by": "Cloudflare" },
+  "delivery": { "uncompressed": 0, "legacy_format": 0, "no_cache": 1 }
 }
 ```
 
@@ -312,6 +316,10 @@ of the SWD figure, and `divergent` otherwise.
 after every flagged asset is fixed (see [Potential savings](#potential-savings)).
 `green_hosting` comes from The Green Web Foundation and is `null` when the lookup fails. It
 is informational only and never changes the grade.
+
+`issues` lists what the asset's response headers reveal: `uncompressed`, `legacy_format` or
+`no_cache` (see [Delivery checks](#delivery-checks-from-response-headers)). `delivery` counts
+each across the page.
 
 The server does not store the result. The frontend saves it to IndexedDB and the `id`
 becomes the `/audits/:id` route.
@@ -403,7 +411,9 @@ recommends. The page's potential grade is the SWD grade after all of those reduc
 | Font | 50% | 70% | Subsetting and WOFF2 |
 | Media | 30% | 40% | Modern codecs |
 
-Well-sized (green) assets are assumed to have nothing left to save.
+Well-sized (green) assets are assumed to have nothing left to save from these fixes. A text
+file sent without compression also gets a 70% compression saving, applied after the rate
+above, so a red script sent uncompressed keeps 0.5 × 0.3 = 15% of its size.
 
 ### ML cross-validation
 
@@ -434,7 +444,7 @@ python -m unittest discover tests
 ```
 
 ```
-Ran 16 tests in 0.228s
+Ran 17 tests in 0.181s
 
 OK
 ```
@@ -450,6 +460,8 @@ The tests cover:
   the potential grade
 - The green hosting lookup, including failure returning "unknown"
 - The audit cache, and `refresh` bypassing it
+- The delivery checks: compression, legacy image formats and cache lifetimes, with the
+  size floors that keep tiny files and tracking pixels out
 
 ### Continuous integration
 
@@ -562,6 +574,26 @@ The free Render instance sleeps when idle, and waking it takes up to a minute. T
 pings `/health` as soon as any page loads, so the server is usually awake by the time an audit
 is submitted. If the ping hasn't answered within two seconds, a notice explains the wait
 instead of leaving the loading steps stalled.
+
+### Delivery checks from response headers
+
+The scraper already sends a HEAD request for every asset to size it, so the checks cost no
+extra requests. The response headers decide three flags:
+
+| Flag | Raised when |
+|---|---|
+| `uncompressed` | A script, stylesheet or SVG of 1 KB or more comes back without `Content-Encoding` |
+| `legacy_format` | An image of 10 KB or more is JPEG, PNG, GIF or BMP |
+| `no_cache` | A file of 1 KB or more has `no-store`, `no-cache` or a `max-age` under a day, or no caching headers at all |
+
+Asset requests send the `Accept` header a browser sends for images. Image CDNs such as
+Shopify's, The Guardian's and Wikimedia's choose WebP or AVIF from that header; without it
+they returned JPEG or PNG, so the format check would have been wrong and those pages were
+being measured far heavier than visitors receive (shopify.com went from 4.29 g to 1.38 g).
+Sites that don't negotiate measure exactly as before.
+
+Compression is only judged from a successful HEAD. If a server rejects HEAD, the flag is
+skipped rather than guessed from the one-byte range request, which servers never compress.
 
 ### Shareable links without storage
 
@@ -691,6 +723,10 @@ the resolved IP in a custom transport would close the gap.
 
 **Rate limit and cache are per process.** Both reset on restart, and a client can spoof the
 first `X-Forwarded-For` entry. Moving them to Redis or the edge proxy would fix both.
+
+**Brotli isn't requested.** Asset requests advertise gzip and deflate only, so servers that
+prefer Brotli are measured at their slightly larger gzip size. Compression is still detected
+either way.
 
 **Savings are estimates.** Reductions use typical figures for each fix, not a re-encoding of
 the actual file.
