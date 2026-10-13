@@ -12,7 +12,7 @@ from app.services import carbon, predictor
 from app.services.audit import run_audit
 from app.services.compare import compare_audits
 from app.services.scraper import (BlockedURLError, check_green_hosting, delivery_issues, extract_assets,
-                                  reject_private_hosts)
+                                  reject_private_hosts, size_asset)
 
 
 class UrlNormalisation(unittest.TestCase):
@@ -56,6 +56,23 @@ class AssetExtraction(unittest.TestCase):
             "https://x.test/s.css": "css", "https://x.test/f.woff2": "font", "https://x.test/favicon.ico": "image",
             "https://cdn.test/f.woff?v=1": "font",
         })
+
+
+class AssetSizing(unittest.TestCase):
+    def test_error_responses_are_not_counted(self):
+        def respond(request):
+            if request.url.path == "/blocked.png":
+                return httpx.Response(403, headers={"content-length": "1990"})
+            if request.method == "HEAD":
+                return httpx.Response(405)
+            return httpx.Response(206, headers={"content-range": "bytes 0-0/5000", "content-type": "image/webp"})
+
+        async def sizes():
+            async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+                return [(await size_asset(client, f"https://x.test/{name}", "image"))["size_bytes"]
+                        for name in ("blocked.png", "no-head.webp")]
+
+        self.assertEqual(asyncio.run(sizes()), [0, 5000])
 
 
 class DeliveryChecks(unittest.TestCase):
