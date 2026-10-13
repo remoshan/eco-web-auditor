@@ -103,7 +103,7 @@ export default function Home() {
           />
           <button className="btn btn-primary" type="submit">Audit Now</button>
         </form>
-        {waking && <Waking />}
+        {waking && <Note text={WAKING} />}
 
       </section>
 
@@ -112,15 +112,17 @@ export default function Home() {
   );
 }
 
-function Waking() {
-  return <p className="waking" role="status">Waking the server from sleep. The first audit can take up to a minute.</p>;
+const WAKING = "Waking the server from sleep. The first audit can take up to a minute.";
+
+function Note({ text }: { text: string }) {
+  return <p className="waking" role="status">{text}</p>;
 }
 
 function Loading({ url, waking }: { url: string; waking: boolean }) {
   const [step, setStep] = useState(0);
 
   useEffect(() => {
-    const timer = setInterval(() => setStep((s) => Math.min(s + 1, LOADING_STEPS.length)), 600);
+    const timer = setInterval(() => setStep((s) => s + 1), 600);
     return () => clearInterval(timer);
   }, []);
 
@@ -147,7 +149,7 @@ function Loading({ url, waking }: { url: string; waking: boolean }) {
             );
           })}
         </div>
-        {waking && <Waking />}
+        {(waking || step > 20) && <Note text={waking ? WAKING : "Still working. Large pages, or a server that has just restarted, can take up to a minute."} />}
       </div>
     </section>
   );
