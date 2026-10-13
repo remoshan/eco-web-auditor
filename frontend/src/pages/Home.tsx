@@ -126,6 +126,8 @@ function Loading({ url, waking }: { url: string; waking: boolean }) {
     return () => clearInterval(timer);
   }, []);
 
+  const current = Math.min(step, LOADING_STEPS.length - 1);
+
   return (
     <section className="loading-section" aria-live="polite">
       <div className="loading-inner">
@@ -133,7 +135,7 @@ function Loading({ url, waking }: { url: string; waking: boolean }) {
         <div className="loading-url">{url}</div>
         <div className="loading-steps">
           {LOADING_STEPS.map((text, i) => {
-            const state = i < step ? "done" : i === step ? "active" : "";
+            const state = i < current ? "done" : i === current ? "active" : "";
             return (
               <div className="step-row" key={text}>
                 <div className={`step-dot ${state}`}>

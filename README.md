@@ -803,7 +803,8 @@ removes the history. Export and import move it between devices by hand. That is 
 cost of storing nothing on the server.
 
 **Simulated progress.** The loading steps advance on a timer rather than reporting real
-scan progress. Server-Sent Events would make them truthful.
+scan progress, so the last step stays active until the report arrives, and a note appears if
+a scan passes 12 seconds. Server-Sent Events would make the steps truthful.
 
 **Some sites refuse automated visitors.** Sites behind strict bot protection (for example
 Stack Overflow, Medium and The New York Times) answer 403. The audit stops with a clear
