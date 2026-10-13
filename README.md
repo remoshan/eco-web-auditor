@@ -477,7 +477,7 @@ python -m unittest discover tests
 ```
 
 ```
-Ran 17 tests in 0.150s
+Ran 18 tests in 0.179s
 
 OK
 ```
@@ -486,6 +486,7 @@ The tests cover:
 - URL normalisation
 - The private-address guard, including IPv4-mapped IPv6
 - HTML asset extraction (srcset, preloads, icons, inline font URLs, deduplication)
+- Asset sizing: error responses aren't counted, and a refused HEAD falls back to a range request
 - Grade and rating boundaries
 - Compare ordering and verdicts
 - ML model parity with the original scikit-learn predictions
@@ -589,6 +590,19 @@ privately is silently skipped rather than failing the whole audit.
 Audits are limited per client IP with a sliding one-minute window held in memory. The
 client IP comes from the first `X-Forwarded-For` entry set by the hosting proxy. Stale
 entries are swept once more than 1,000 IPs are tracked, so memory stays bounded.
+
+### An honest User-Agent
+
+Every request identifies the auditor: a current browser string followed by
+`EcoWebAuditor/2.0 (+https://eco-web-auditor.vercel.app)`. The browser part matters for
+accuracy, because some servers only send compressed or modern files to browsers (Google's
+CDN serves jQuery at 93 KB instead of 34 KB to unknown clients). The name and link meet the
+bot policies of sites such as Wikimedia, which refuse anonymous browser lookalikes coming
+from cloud servers.
+
+An asset is only measured from a successful response. If a server refuses the HEAD request,
+the scraper tries a one-byte range request; if that is refused too, the asset is left out
+instead of its error page being counted.
 
 ### Short-lived audit cache
 
@@ -790,6 +804,10 @@ cost of storing nothing on the server.
 
 **Simulated progress.** The loading steps advance on a timer rather than reporting real
 scan progress. Server-Sent Events would make them truthful.
+
+**Some sites refuse automated visitors.** Sites behind strict bot protection (for example
+Stack Overflow, Medium and The New York Times) answer 403. The audit stops with a clear
+message rather than measuring a challenge page.
 
 **Valid certificates required.** Sites with broken TLS fail rather than being fetched
 insecurely.

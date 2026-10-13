@@ -12,7 +12,8 @@ from app.config import settings
 
 GREEN_CHECK_URL = "https://api.thegreenwebfoundation.org/api/v3/greencheck/"
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 "
+                  "Safari/537.36 EcoWebAuditor/2.0 (+https://eco-web-auditor.vercel.app)",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
 }
@@ -94,10 +95,10 @@ async def size_asset(client: httpx.AsyncClient, url: str, asset_type: str) -> di
     with contextlib.suppress(Exception):
         response = await client.head(url, headers=ASSET_HEADERS, timeout=8)
         encoded = not response.is_success or response.headers.get("content-encoding", "identity") != "identity"
-        length = response.headers.get("content-length", "")
+        length = response.headers.get("content-length", "") if response.is_success else ""
         if not length.isdigit():
             response = await client.get(url, headers={**ASSET_HEADERS, "Range": "bytes=0-0"}, timeout=8)
-            length = response.headers.get("content-range", "").rpartition("/")[2]
+            length = response.headers.get("content-range", "").rpartition("/")[2] if response.is_success else ""
         size = int(length) if length.isdigit() else 0
         headers = response.headers
     content_type = headers.get("content-type", "").lower()
@@ -123,7 +124,10 @@ async def scrape_page(url: str) -> dict:
         except BlockedURLError:
             raise
         except httpx.HTTPStatusError as exc:
-            raise ValueError(f"Server returned HTTP {exc.response.status_code} for {url}.")
+            code = exc.response.status_code
+            if code in (401, 403, 429):
+                raise ValueError(f"{url} refused the audit (HTTP {code}). Some sites block automated visitors.")
+            raise ValueError(f"Server returned HTTP {code} for {url}.")
         except httpx.ConnectError:
             raise ValueError(f"Could not connect to {url}. Please check the URL and your internet connection.")
         except httpx.TimeoutException:
