@@ -14,6 +14,7 @@ export const serverAwake = fetch(API_ORIGIN + "/health").then(() => {}, () => {}
 async function request<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const init = body === undefined ? { signal } : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal };
   const res = await fetch(API_ORIGIN + path, init).catch((err) => {
+    if (signal?.reason?.name === "TimeoutError") throw new Error("The audit took too long to finish. Please try again.");
     throw signal?.aborted ? err : new Error("Couldn't reach the server. Check your connection and try again.");
   });
   const data = await res.json().catch(() => null);
@@ -21,8 +22,8 @@ async function request<T>(path: string, body?: unknown, signal?: AbortSignal): P
   return data as T;
 }
 
-export const runAudit = (url: string, refresh: boolean, signal?: AbortSignal) =>
-  request<Audit>("/api/audit", { url, refresh }, signal);
+export const runAudit = (url: string, refresh: boolean, signal: AbortSignal) =>
+  request<Audit>("/api/audit", { url, refresh }, AbortSignal.any([signal, AbortSignal.timeout(120_000)]));
 
 export const compareAudits = (a: Audit, b: Audit, signal?: AbortSignal) =>
   request<Comparison>("/api/compare", { a: { ...a, assets: [] }, b: { ...b, assets: [] } }, signal);

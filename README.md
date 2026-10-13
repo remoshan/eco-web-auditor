@@ -755,7 +755,7 @@ frontend/
 ├── index.html               shell + pre-paint theme script
 ├── vite.config.ts           dev/preview proxy, PWA manifest and service worker
 ├── vercel.json              build settings, SPA rewrite, legacy redirects
-├── public/                  favicon and app icons
+├── public/                  logo.svg (favicon) and app icons
 └── src/
     ├── main.tsx             router with lazy-loaded routes
     ├── App.tsx              layout, logo, navigation, theme toggle

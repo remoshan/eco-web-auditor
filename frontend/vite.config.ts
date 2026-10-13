@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg", "apple-touch-icon-180x180.png"],
+      includeAssets: ["logo.svg", "apple-touch-icon-180x180.png"],
       manifest: {
         name: "EcoWeb Auditor",
         short_name: "EcoWeb",
