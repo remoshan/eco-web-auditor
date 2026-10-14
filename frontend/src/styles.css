@@ -96,6 +96,38 @@ code { font-family: var(--mono); font-size: 0.9em; }
 .btn-ghost:hover { border-color: var(--border-hi); background: var(--surface-hi); }
 .btn-small { padding: 7px 14px; font-size: 12px; }
 .btn-large { padding: 13px 32px; font-size: 15px; }
+.btn-danger { background: var(--red); border-color: var(--red); color: var(--bg); }
+.btn-danger:hover { opacity: 0.85; }
+
+.dialog {
+  margin: auto;
+  padding: 0;
+  width: min(440px, calc(100% - 32px));
+  max-width: none;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-hi);
+  opacity: 0;
+  transform: translateY(12px) scale(0.97);
+  transition: opacity 0.2s ease, transform 0.2s ease, overlay 0.2s allow-discrete, display 0.2s allow-discrete;
+}
+.dialog[open] { opacity: 1; transform: none; }
+.dialog::backdrop {
+  background: rgb(2 10 6 / 0);
+  backdrop-filter: blur(0);
+  transition: background 0.2s ease, backdrop-filter 0.2s ease, overlay 0.2s allow-discrete, display 0.2s allow-discrete;
+}
+.dialog[open]::backdrop { background: rgb(2 10 6 / 0.6); backdrop-filter: blur(3px); }
+@starting-style {
+  .dialog[open] { opacity: 0; transform: translateY(12px) scale(0.97); }
+  .dialog[open]::backdrop { background: rgb(2 10 6 / 0); backdrop-filter: blur(0); }
+}
+.dialog-body { padding: 26px; }
+.dialog-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.dialog-text { color: var(--text-sub); font-size: 14px; line-height: 1.6; }
+.dialog-input { width: 100%; margin-top: 16px; padding: 10px 12px; font: 13px var(--mono); color: var(--text); background: var(--bg); border: 1px solid var(--border); }
+.dialog-input:focus { outline: none; border-color: var(--border-hi); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
 
 .section-label { font-size: 11px; font-weight: 600; color: var(--text-sub); letter-spacing: 0.6px; text-transform: uppercase; }
 
@@ -382,6 +414,7 @@ footer { border-top: 1px solid var(--border); padding: 40px var(--gutter) max(40
   .grade-range { grid-column: 1 / -1; text-align: left; }
   .recent-actions { width: 100%; }
   .recent-actions .btn, .results-actions .btn { flex: 1 1 calc(50% - 4px); }
+  .dialog-actions .btn { flex: 1; }
 }
 
 @media (max-width: 380px) {
@@ -397,7 +430,7 @@ footer { border-top: 1px solid var(--border); padding: 40px var(--gutter) max(40
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; }
+  *, *::before, *::after, ::backdrop { animation: none !important; transition: none !important; }
 }
 
 @media print {
