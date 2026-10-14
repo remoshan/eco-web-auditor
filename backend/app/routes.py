@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 
@@ -12,6 +13,7 @@ from app.services.compare import compare_audits
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Audit"])
 WINDOW_SECONDS = 60
+AUDIT_SECONDS = 90
 CACHE_SECONDS = 600
 CACHE_SIZE = 100
 _hits: dict[str, list[float]] = {}
@@ -38,9 +40,11 @@ async def audit(request: AuditRequest):
     if cached and not request.refresh and cached[0] > time.monotonic():
         return cached[1]
     try:
-        result = await run_audit(url)
+        result = await asyncio.wait_for(run_audit(url), AUDIT_SECONDS)
     except ValueError as exc:
         raise HTTPException(422, str(exc))
+    except TimeoutError:
+        raise HTTPException(504, f"The audit took longer than {AUDIT_SECONDS} seconds and was stopped. The site may be very slow.")
     except Exception:
         logger.exception("Audit failed for %s", url)
         raise HTTPException(500, "An unexpected error occurred while scraping the page.")

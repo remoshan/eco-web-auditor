@@ -63,7 +63,7 @@ export default function AuditResult() {
           </div>
           {[
             ["Per-visit carbon", formatCO2(audit.total_co2), "CO₂ per page visit", `${audit.annual_co2_kg} kg CO₂/yr`],
-            ["Page weight", `${audit.page_weight_mb} MB`, "transferred", `${audit.request_count} requests`],
+            ["Page weight", formatBytes(audit.total_bytes), "transferred", `${audit.request_count} requests`],
             ["Real-world equivalent", null, audit.comparison, `${audit.trees_to_offset} trees to offset annually`],
           ].map(([label, value, unit, foot]) => (
             <div className="card metric-card" key={label}>

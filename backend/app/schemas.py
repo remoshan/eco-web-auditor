@@ -1,10 +1,14 @@
+import re
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 Verdict = Literal["better", "worse", "same"]
 Issue = Literal["uncompressed", "legacy_format", "no_cache"]
+Amount = Annotated[float, Field(ge=0, allow_inf_nan=False)]
+Count = Annotated[int, Field(ge=0)]
+SCHEME = re.compile(r"^[a-z][a-z0-9+.-]*:(?!\d)", re.I)
 
 
 class AuditRequest(BaseModel):
@@ -14,7 +18,7 @@ class AuditRequest(BaseModel):
     @field_validator("url", mode="before")
     @classmethod
     def add_scheme(cls, v: object) -> object:
-        if isinstance(v, str) and (v := v.strip()) and "://" not in v:
+        if isinstance(v, str) and (v := v.strip()) and not SCHEME.match(v):
             return "https://" + v
         return v
 
@@ -33,10 +37,10 @@ class AssetInfo(BaseModel):
 
 class CategoryBreakdown(BaseModel):
     name: str
-    count: int
-    total_bytes: int
-    total_co2: float
-    percentage: float
+    count: Count
+    total_bytes: Count
+    total_co2: Amount
+    percentage: Amount
 
 
 class MLPrediction(BaseModel):
@@ -70,15 +74,15 @@ class CompareSide(BaseModel):
     url: str
     audited_at: datetime
     grade: str
-    score: int
-    total_co2: float
+    score: Annotated[int, Field(ge=0, le=100)]
+    total_co2: Amount
 
 
 class AuditSummary(CompareSide):
-    annual_co2_kg: float
-    total_bytes: int
-    request_count: int
-    categories: list[CategoryBreakdown]
+    annual_co2_kg: Amount
+    total_bytes: Count
+    request_count: Count
+    categories: list[CategoryBreakdown] = Field(max_length=10)
 
 
 class AuditResponse(AuditSummary):

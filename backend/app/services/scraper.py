@@ -19,6 +19,7 @@ HEADERS = {
 }
 ASSET_HEADERS = {"Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"}
 LEGACY_IMAGES = ("image/jpeg", "image/png", "image/gif", "image/bmp")
+MAX_PAGE_BYTES = 5_000_000
 MIN_CHECK_BYTES = 1_024
 MIN_LEGACY_BYTES = 10_240
 MIN_CACHE_SECONDS = 86_400
@@ -97,8 +98,8 @@ async def size_asset(client: httpx.AsyncClient, url: str, asset_type: str) -> di
         encoded = not response.is_success or response.headers.get("content-encoding", "identity") != "identity"
         length = response.headers.get("content-length", "") if response.is_success else ""
         if not length.isdigit():
-            response = await client.get(url, headers={**ASSET_HEADERS, "Range": "bytes=0-0"}, timeout=8)
-            length = response.headers.get("content-range", "").rpartition("/")[2] if response.is_success else ""
+            async with client.stream("GET", url, headers={**ASSET_HEADERS, "Range": "bytes=0-0"}, timeout=8) as response:
+                length = response.headers.get("content-range", "").rpartition("/")[2] if response.is_success else ""
         size = int(length) if length.isdigit() else 0
         headers = response.headers
     content_type = headers.get("content-type", "").lower()
@@ -120,8 +121,17 @@ async def scrape_page(url: str) -> dict:
     async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True, timeout=settings.SCRAPER_TIMEOUT,
                                  event_hooks={"request": [reject_private_hosts]}) as client:
         try:
-            response = (await client.get(url)).raise_for_status()
-        except BlockedURLError:
+            async with client.stream("GET", url) as response:
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "text/html").lower()
+                if "html" not in content_type:
+                    raise ValueError(f"{url} isn't a web page (it returned {content_type.split(';')[0]}).")
+                body = bytearray()
+                async for chunk in response.aiter_bytes():
+                    body += chunk
+                    if len(body) > MAX_PAGE_BYTES:
+                        raise ValueError(f"{url} is larger than {MAX_PAGE_BYTES // 1_000_000} MB, so it can't be audited.")
+        except ValueError:
             raise
         except httpx.HTTPStatusError as exc:
             code = exc.response.status_code
@@ -139,6 +149,9 @@ async def scrape_page(url: str) -> dict:
             async with semaphore:
                 return await size_asset(client, asset_url, asset_type)
 
-        found = list(extract_assets(response.text, str(response.url)).items())[:settings.MAX_ASSETS_PER_PAGE]
+        if not body:
+            raise ValueError(f"{url} returned an empty page.")
+        html = body.decode(response.encoding or "utf-8", errors="replace")
+        found = list(extract_assets(html, str(response.url)).items())[:settings.MAX_ASSETS_PER_PAGE]
         sized = await asyncio.gather(*(bounded(u, t) for u, t in found))
-    return {"html_size": len(response.content), "assets": [a for a in sized if a["size_bytes"]]}
+    return {"html_size": len(body), "assets": [a for a in sized if a["size_bytes"]]}

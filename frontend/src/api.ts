@@ -18,7 +18,10 @@ async function request<T>(path: string, body?: unknown, signal?: AbortSignal): P
     throw signal?.aborted ? err : new Error("Couldn't reach the server. Check your connection and try again.");
   });
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(typeof data?.detail === "string" ? data.detail : `Server error (${res.status})`);
+  if (!res.ok) {
+    const fallback = res.status >= 502 ? "The server is unavailable right now. It may be starting up, so try again in a moment." : `Server error (${res.status})`;
+    throw new Error(typeof data?.detail === "string" ? data.detail : fallback);
+  }
   return data as T;
 }
 

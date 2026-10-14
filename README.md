@@ -358,8 +358,10 @@ becomes the `/audits/:id` route.
 
 | Status | When |
 |---|---|
-| `422` | Invalid URL, unreachable site, HTTP error from the site, or a private address |
+| `413` | Request body missing or larger than 100 KB |
+| `422` | Invalid URL, unreachable site, HTTP error from the site, a private address, a file that isn't HTML, an empty page, or a page over 5 MB |
 | `429` | Rate limit exceeded. Carries a `Retry-After: 60` header |
+| `504` | The audit took longer than 90 seconds and was stopped |
 
 Every error body is a single readable string: `{ "detail": "..." }`.
 
@@ -477,18 +479,20 @@ python -m unittest discover tests
 ```
 
 ```
-Ran 18 tests in 0.179s
+Ran 23 tests in 0.646s
 
 OK
 ```
 
 The tests cover:
-- URL normalisation
+- URL normalisation, including bare `host:port` and refusing `javascript:` and `data:` URLs
+- Page fetching: HTML is measured, while files that aren't HTML and pages over 5 MB are refused
 - The private-address guard, including IPv4-mapped IPv6
 - HTML asset extraction (srcset, preloads, icons, inline font URLs, deduplication)
 - Asset sizing: error responses aren't counted, and a refused HEAD falls back to a range request
 - Grade and rating boundaries
-- Compare ordering and verdicts
+- Compare ordering and verdicts, and refusing `NaN`, infinite or negative values
+- The 100 KB request body limit
 - ML model parity with the original scikit-learn predictions
 - A full audit pipeline run validated against the response schema, including savings,
   the compression saving, the potential grade and the delivery counts
@@ -555,8 +559,15 @@ Checked at 375 px, 768 px, 1280 px and 1440 px in both themes:
 - "Run again" forcing a fresh scan, and the trend line appearing for the second audit
 - Opening a copied `/?url=` link reusing the cached report without a duplicate history row,
   going back without re-auditing, and a blocked URL showing its error with the field filled in
-- Downloading JSON, and exporting, clearing and re-importing history (re-imports don't
-  duplicate, and files older than 7 days or the wrong shape are rejected clearly)
+- Downloading JSON, and exporting, clearing and re-importing history (re-imports and duplicate
+  entries collapse to one row, future-dated or older-than-7-days entries are dropped, and files
+  missing the core report fields are rejected clearly)
+- Clicking "Audit Now" repeatedly sends one audit, and retrying after an error works
+- A page that fails to render, such as a damaged import, shows a message inside the normal
+  layout instead of a blank error page
+- Storage that is full or blocked, a backend that is down, and the rate limit each show a
+  plain explanation
+- Keyboard-only use: every control is reachable in order, with a visible focus outline
 - Comparing two audits, and the About page's grade scale loading from the API
 - With the production bundle (`npm run preview`): the service worker registers and
   precaches the app, and after stopping both servers a saved audit still opens in full,
@@ -603,6 +614,20 @@ from cloud servers.
 An asset is only measured from a successful response. If a server refuses the HEAD request,
 the scraper tries a one-byte range request; if that is refused too, the asset is left out
 instead of its error page being counted.
+
+### Limits that keep the server safe
+
+The free instance has 512 MB of memory, so nothing an outsider sends may be unbounded:
+
+- The audited page is streamed, refused unless it is HTML, and abandoned past 5 MB. A link to
+  a 100 MB file used to push memory from 77 MB to 558 MB; it is now refused in under a second.
+- Asset range requests are streamed too, so a server that ignores `Range` can't send a whole
+  file.
+- Each audit is capped at 90 seconds, so a server trickling bytes can't hold a worker.
+- Request bodies over 100 KB are refused before they are read, and compared numbers must be
+  finite and non-negative.
+
+Fifteen simultaneous audits of large real sites peaked at 146 MB.
 
 ### Short-lived audit cache
 
@@ -781,6 +806,9 @@ These are deliberate, and documented rather than hidden.
 runtime are not counted. A headless browser would capture them, at a large cost in memory
 and audit time.
 
+**Pages over 5 MB can't be audited.** The limit protects the server's memory; real HTML
+pages, even long Wikipedia articles, are far below it.
+
 **Assets are sized, not downloaded.** Sizes come from `Content-Length`, or `Content-Range`
 on a one-byte range request. Servers that send neither are left out of the total.
 
@@ -803,7 +831,8 @@ removes the history. Export and import move it between devices by hand. That is 
 cost of storing nothing on the server.
 
 **Simulated progress.** The loading steps advance on a timer rather than reporting real
-scan progress. Server-Sent Events would make them truthful.
+scan progress, so the last step stays active until the report arrives, and a note appears if
+a scan passes 12 seconds. Server-Sent Events would make the steps truthful.
 
 **Some sites refuse automated visitors.** Sites behind strict bot protection (for example
 Stack Overflow, Medium and The New York Times) answer 403. The audit stops with a clear

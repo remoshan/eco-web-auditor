@@ -56,16 +56,20 @@ export default function Home() {
   }, []);
 
   async function start(target: string, refresh = false) {
+    if (abort.current && !abort.current.signal.aborted) return;
     const controller = new AbortController();
     abort.current = controller;
     setError(null);
     setScanning(target);
     try {
       const audit = await runAudit(target, refresh, controller.signal);
-      await saveAudit(audit);
+      await saveAudit(audit).catch(() => {
+        throw new Error("The report couldn't be saved in this browser. Storage may be full or blocked, so clear your audit history and try again.");
+      });
       navigate(`/audits/${audit.id}`);
     } catch (err) {
       if (controller.signal.aborted) return;
+      abort.current = null;
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
       setScanning(null);
     }
@@ -126,6 +130,8 @@ function Loading({ url, waking }: { url: string; waking: boolean }) {
     return () => clearInterval(timer);
   }, []);
 
+  const current = Math.min(step, LOADING_STEPS.length - 1);
+
   return (
     <section className="loading-section" aria-live="polite">
       <div className="loading-inner">
@@ -133,7 +139,7 @@ function Loading({ url, waking }: { url: string; waking: boolean }) {
         <div className="loading-url">{url}</div>
         <div className="loading-steps">
           {LOADING_STEPS.map((text, i) => {
-            const state = i < step ? "done" : i === step ? "active" : "";
+            const state = i < current ? "done" : i === current ? "active" : "";
             return (
               <div className="step-row" key={text}>
                 <div className={`step-dot ${state}`}>

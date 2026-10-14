@@ -91,7 +91,7 @@ export default function HistoryList() {
                   {a.url}
                 </Link>
                 <div className="recent-co2">{formatCO2(a.total_co2)} CO₂</div>
-                <div className="recent-co2">{a.page_weight_mb} MB</div>
+                <div className="recent-co2">{a.page_weight_mb ? `${a.page_weight_mb} MB` : "< 0.01 MB"}</div>
                 <div className="grade-chip" style={{ color: gradeColor(a.grade) }}>{a.grade}</div>
                 <div className="recent-date">{formatDate(a.audited_at)}</div>
               </div>
