@@ -4,12 +4,14 @@ import type { Asset, Audit } from "../api";
 import { downloadJson, listHistory, loadAudit, type HistoryEntry } from "../history";
 import { ISSUES, STATUS_COLOR, TYPE_LABEL, formatBytes, formatCO2, formatDate, gradeColor } from "../format";
 import { BackButton, Missing } from "../App";
+import Dialog from "../components/Dialog";
 
 export default function AuditResult() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const [audit, setAudit] = useState<Audit | null | undefined>(undefined);
   const [copied, setCopied] = useState(false);
+  const [manualCopy, setManualCopy] = useState(false);
 
   useEffect(() => {
     loadAudit(id).then((a) => setAudit(a ?? null), () => setAudit(null));
@@ -24,7 +26,7 @@ export default function AuditResult() {
     navigator.clipboard.writeText(link).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    }, () => prompt("Copy this link", link));
+    }, () => setManualCopy(true));
   }
 
   return (
@@ -96,6 +98,14 @@ export default function AuditResult() {
         <MLCard audit={audit} />
         <AssetList assets={audit.assets} />
       </div>
+
+      <Dialog open={manualCopy} title="Copy this link" onClose={() => setManualCopy(false)}>
+        <p className="dialog-text">Your browser blocked automatic copying. The link is selected below, so press Ctrl+C (or ⌘C) to copy it.</p>
+        <input className="dialog-input" readOnly value={link} onFocus={(e) => e.target.select()} aria-label="Shareable link" />
+        <div className="dialog-actions">
+          <button className="btn btn-primary" onClick={() => setManualCopy(false)}>Done</button>
+        </div>
+      </Dialog>
     </div>
   );
 }

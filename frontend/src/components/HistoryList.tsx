@@ -2,12 +2,14 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { clearHistory, exportHistory, importHistory, listHistory, type HistoryEntry } from "../history";
 import { formatCO2, formatDate, gradeColor } from "../format";
+import Dialog from "./Dialog";
 
 export default function HistoryList() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export default function HistoryList() {
   }
 
   async function clear() {
-    if (!confirm("Delete all saved audits from this browser?")) return;
+    setConfirming(false);
     await clearHistory();
     setEntries([]);
     setSelected([]);
@@ -60,7 +62,7 @@ export default function HistoryList() {
             {entries.length > 0 && (
               <>
                 <button className="btn btn-ghost" onClick={exportHistory}>Export</button>
-                <button className="btn btn-ghost" onClick={clear}>Clear history</button>
+                <button className="btn btn-ghost" onClick={() => setConfirming(true)}>Clear history</button>
                 <button
                   className="btn btn-primary"
                   disabled={selected.length !== 2}
@@ -99,6 +101,14 @@ export default function HistoryList() {
           })}
         </div>
       </div>
+
+      <Dialog open={confirming} title="Clear audit history?" onClose={() => setConfirming(false)}>
+        <p className="dialog-text">Every saved audit will be deleted from this browser. This can't be undone, so export your history first if you want a backup.</p>
+        <div className="dialog-actions">
+          <button className="btn btn-ghost" onClick={() => setConfirming(false)}>Cancel</button>
+          <button className="btn btn-danger" onClick={clear}>Delete all</button>
+        </div>
+      </Dialog>
     </section>
   );
 }
