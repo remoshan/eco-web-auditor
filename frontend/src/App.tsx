@@ -31,6 +31,10 @@ export function Missing({ text }: { text: string }) {
   );
 }
 
+export function RouteError() {
+  return <Missing text="Something went wrong showing this page. Reload to try again. If it is an imported audit, the file may be damaged." />;
+}
+
 export default function App() {
   const [theme, setTheme] = useState(() => (document.documentElement.dataset.theme === "light" ? "light" : "dark"));
 

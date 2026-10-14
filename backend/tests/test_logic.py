@@ -1,18 +1,22 @@
 import asyncio
 import unittest
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from unittest.mock import AsyncMock, patch
 
 import httpx
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app import routes
+from app.config import settings
 from app.schemas import AuditRequest, AuditResponse, AuditSummary
 from app.services import carbon, predictor
 from app.services.audit import run_audit
 from app.services.compare import compare_audits
 from app.services.scraper import (BlockedURLError, check_green_hosting, delivery_issues, extract_assets,
-                                  reject_private_hosts, size_asset)
+                                  reject_private_hosts, scrape_page, size_asset)
+from main import app
 
 
 class UrlNormalisation(unittest.TestCase):
@@ -22,10 +26,14 @@ class UrlNormalisation(unittest.TestCase):
     def test_explicit_http_is_kept(self):
         self.assertEqual(str(AuditRequest(url="http://example.com").url), "http://example.com/")
 
+    def test_bare_host_with_port_gets_https(self):
+        self.assertEqual(str(AuditRequest(url="example.com:8080").url), "https://example.com:8080/")
+
     def test_rejects_other_schemes_and_empty(self):
-        for bad in ("ftp://example.com", "", "javascript:alert(1)"):
-            with self.subTest(bad=bad), self.assertRaises(ValidationError):
+        for bad in ("ftp://example.com", "", "javascript:alert(1)", "data:text/html,x"):
+            with self.subTest(bad=bad), self.assertRaises(ValidationError) as caught:
                 AuditRequest(url=bad)
+            self.assertNotIn("port", str(caught.exception))
 
 
 class PrivateHostGuard(unittest.TestCase):
@@ -56,6 +64,23 @@ class AssetExtraction(unittest.TestCase):
             "https://x.test/s.css": "css", "https://x.test/f.woff2": "font", "https://x.test/favicon.ico": "image",
             "https://cdn.test/f.woff?v=1": "font",
         })
+
+
+class PageFetching(unittest.TestCase):
+    def scrape(self, response):
+        client = partial(httpx.AsyncClient, transport=httpx.MockTransport(lambda request: response))
+        with patch("app.services.scraper.httpx.AsyncClient", client), patch.object(settings, "ALLOW_PRIVATE_URLS", True):
+            return asyncio.run(scrape_page("https://x.test/"))
+
+    def test_measures_html(self):
+        page = self.scrape(httpx.Response(200, headers={"content-type": "text/html"}, content=b"<p>hi</p>"))
+        self.assertEqual(page, {"html_size": 9, "assets": []})
+
+    def test_refuses_files_and_oversized_pages(self):
+        for response, message in [(httpx.Response(200, headers={"content-type": "application/zip"}, content=b"PK"), "isn't a web page"),
+                                  (httpx.Response(200, headers={"content-type": "text/html"}, content=b"x" * 5_000_001), "larger than 5 MB")]:
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
+                self.scrape(response)
 
 
 class AssetSizing(unittest.TestCase):
@@ -201,3 +226,14 @@ class Compare(unittest.TestCase):
         result = compare_audits(a, a)
         self.assertEqual(result["verdict"], "same")
         self.assertTrue(all(r["verdict"] == "same" for r in result["metrics"]))
+
+    def test_rejects_impossible_numbers(self):
+        for bad in (float("nan"), float("inf"), -1.0):
+            with self.subTest(bad=bad), self.assertRaises(ValidationError):
+                AuditSummary.model_validate({**summary(self.now, 0.5, 50, []).model_dump(), "total_co2": bad})
+
+
+class RequestLimits(unittest.TestCase):
+    def test_oversized_body_is_refused(self):
+        response = TestClient(app).post("/api/compare", content=b"x" * 100_001, headers={"Content-Type": "application/json"})
+        self.assertEqual((response.status_code, response.json()["detail"]), (413, "The request body is missing or too large."))

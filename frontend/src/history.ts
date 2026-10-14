@@ -5,14 +5,17 @@ export type HistoryEntry = Pick<Audit, "id" | "url" | "grade" | "total_co2" | "p
 
 const INDEX_KEY = "history";
 const MAX_ENTRIES = 50;
-const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const reportKey = (id: string) => `audit:${id}`;
 const readIndex = async () => (await get<HistoryEntry[]>(INDEX_KEY)) ?? [];
 
 async function prune(entries: HistoryEntry[], changed: boolean): Promise<HistoryEntry[]> {
-  const cutoff = Date.now() - MAX_AGE_MS;
+  const now = Date.now();
   const kept = entries
-    .filter((e) => Date.parse(e.audited_at) >= cutoff)
+    .filter((e) => {
+      const age = now - Date.parse(e.audited_at);
+      return age >= -DAY_MS && age <= 7 * DAY_MS;
+    })
     .sort((a, b) => Date.parse(b.audited_at) - Date.parse(a.audited_at))
     .slice(0, MAX_ENTRIES);
   if (changed || kept.length !== entries.length) {
@@ -22,7 +25,8 @@ async function prune(entries: HistoryEntry[], changed: boolean): Promise<History
   return kept;
 }
 
-async function store(audits: Audit[]): Promise<HistoryEntry[]> {
+async function store(input: Audit[]): Promise<HistoryEntry[]> {
+  const audits = [...new Map(input.map((a) => [a.id, a])).values()];
   const ids = new Set(audits.map((a) => a.id));
   await setMany(audits.map((a) => [reportKey(a.id), a]));
   const added = audits.map(({ id, url, grade, total_co2, page_weight_mb, audited_at }) => ({ id, url, grade, total_co2, page_weight_mb, audited_at }));
@@ -56,7 +60,9 @@ export async function exportHistory(): Promise<void> {
 
 export async function importHistory(data: unknown): Promise<number> {
   const isAudit = (a: Partial<Audit>) =>
-    typeof a?.id === "string" && typeof a.url === "string" && Array.isArray(a.assets) && Array.isArray(a.categories) && !Number.isNaN(Date.parse(a.audited_at ?? ""));
+    typeof a?.id === "string" && typeof a.url === "string" && typeof a.grade === "string" && typeof a.score === "number" &&
+    typeof a.total_co2 === "number" && typeof a.ml_prediction === "object" && typeof a.potential === "object" &&
+    Array.isArray(a.assets) && Array.isArray(a.categories) && !Number.isNaN(Date.parse(a.audited_at ?? ""));
   const audits = (Array.isArray(data) ? data : []).filter(isAudit);
   if (!audits.length) throw new Error("That file isn't an EcoWeb Auditor history export.");
   return (await store(audits)).length;

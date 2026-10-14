@@ -56,16 +56,20 @@ export default function Home() {
   }, []);
 
   async function start(target: string, refresh = false) {
+    if (abort.current && !abort.current.signal.aborted) return;
     const controller = new AbortController();
     abort.current = controller;
     setError(null);
     setScanning(target);
     try {
       const audit = await runAudit(target, refresh, controller.signal);
-      await saveAudit(audit);
+      await saveAudit(audit).catch(() => {
+        throw new Error("The report couldn't be saved in this browser. Storage may be full or blocked, so clear your audit history and try again.");
+      });
       navigate(`/audits/${audit.id}`);
     } catch (err) {
       if (controller.signal.aborted) return;
+      abort.current = null;
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
       setScanning(null);
     }
